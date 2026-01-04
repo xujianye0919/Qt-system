@@ -9,6 +9,7 @@
 #include "data/DatabaseManager.h"
 #include "ui/NoticeManager.h"
 #include "ui/SettingsDialog.h"
+#include "network/NetworkWorker.h"
 
 namespace Ui {
 class MainWindow; // Qt 6自动生成的UI类
@@ -51,6 +52,7 @@ private:
     QList<QVariantMap> m_notices;        // 滚动通知列表
     int m_currentNoticeIndex = 0;        // 当前滚动通知索引
     int m_marqueeOffset = 0;             // 滚动偏移量
+    NetworkWorker* m_networkWorker; // 网络同步对象
 
     // 初始化Model/View
     void initModel();

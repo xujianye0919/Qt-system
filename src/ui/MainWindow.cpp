@@ -7,7 +7,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    // 加载UI（Qt 6自动生成的ui_MainWindow.h）
+    // 加载UI
     ui->setupUi(this);
 
     // 初始化数据库（单例）
@@ -31,6 +31,18 @@ MainWindow::MainWindow(QWidget *parent) :
     if (m_filterModel->rowCount() > 0) {
         ui->classTableView->selectRow(0);
     }
+
+    m_networkWorker = new NetworkWorker(this);
+    connect(m_networkWorker, &NetworkWorker::syncSuccess, this, [=](const QString& msg) {
+        qInfo() << msg;
+        refreshUI(); // 同步成功后刷新UI
+    });
+    connect(m_networkWorker, &NetworkWorker::syncFailed, this, [=](const QString& msg) {
+        qWarning() << msg;
+        QMessageBox::warning(this, "同步警告", msg);
+    });
+    // 启动定时同步
+    emit m_networkWorker->startSyncTimer();
 }
 
 MainWindow::~MainWindow()
