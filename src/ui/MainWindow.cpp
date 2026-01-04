@@ -238,7 +238,7 @@ void on_noticeBtn_clicked()
 }
 
 // 导出数据按钮点击
-void on_exportBtn_clicked()
+void MainWindow::on_exportBtn_clicked()
 {
     if (m_currentClassId == -1) {
         QMessageBox::warning(this, "警告", "请先选择班级！");
@@ -249,9 +249,7 @@ void on_exportBtn_clicked()
     QList<QVariantMap> courses = DatabaseManager::instance().getCoursesByClassId(m_currentClassId);
     bool success = ExportHelper::exportCoursesToExcel(courses, QString("班级%1课表").arg(m_currentClassId));
 
-    if (success) {
-        QMessageBox::information(this, "成功", "课表导出成功！");
-    } else {
-        QMessageBox::critical(this, "失败", "课表导出失败！");
+    if (!success) {
+        QMessageBox::critical(this, "失败", "课表导出失败！请确认已安装Excel！");
     }
 }
