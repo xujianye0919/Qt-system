@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>style.qss</file>
+        <file>../../sql/create_tables.sql</file>
+        <file>../../sql/test_data.sql</file>
+    </qresource>
+</RCC>

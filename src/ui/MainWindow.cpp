@@ -10,6 +10,13 @@ MainWindow::MainWindow(QWidget *parent) :
     // 加载UI
     ui->setupUi(this);
 
+     QFile styleFile(":/style.qss");
+    if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QString styleSheet = styleFile.readAll();
+        this->setStyleSheet(styleSheet);
+        styleFile.close();
+    }
+
     // 初始化数据库（单例）
     DatabaseManager::instance().init();
 

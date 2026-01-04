@@ -1,0 +1,95 @@
+/* 全局样式（Qt 6适配） */
+QMainWindow, QDialog {
+    background-color: #f5f5f5;
+}
+
+/* 按钮样式 */
+QPushButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+QPushButton:hover {
+    background-color: #2980b9;
+}
+
+QPushButton:pressed {
+    background-color: #1f618d;
+}
+
+QPushButton#closeBtn, QPushButton#cancelBtn {
+    background-color: #e74c3c;
+}
+
+QPushButton#closeBtn:hover, QPushButton#cancelBtn:hover {
+    background-color: #c0392b;
+}
+
+/* 输入框样式 */
+QLineEdit, QTextEdit {
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+    padding: 8px;
+    font-size: 14px;
+    background-color: white;
+}
+
+QLineEdit:focus, QTextEdit:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+/* 表格样式 */
+QTableView {
+    background-color: white;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+    gridline-color: #ecf0f1;
+}
+
+QTableView::header {
+    background-color: #34495e;
+    color: white;
+    font-weight: bold;
+}
+
+QTableView::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
+/* 标签样式 */
+QLabel#titleLabel {
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+QLabel#currentCourseName {
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+QLabel#countdownLabel {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* 框架样式 */
+QFrame#currentCourseFrame, QFrame#nextCourseFrame {
+    background-color: white;
+    border: 1px solid #ecf0f1;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* 滚动通知 */
+QLabel#marqueeLabel {
+    background-color: #fff3cd;
+    color: #856404;
+    border-radius: 5px;
+    padding: 10px;
+}
