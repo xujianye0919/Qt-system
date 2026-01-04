@@ -1,4 +1,7 @@
 #include "DatabaseManager.h"
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
 
 // 单例实例初始化
 DatabaseManager& DatabaseManager::instance()
@@ -486,4 +489,90 @@ QString DatabaseManager::formatDate(const QString& dateStr)
         return date.toString("yyyy-MM-dd");
     }
     return "";
+}
+// 添加日志输出函数（辅助）
+static void writeLog(const QString& level, const QString& msg)
+{
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/classboard.log";
+    QFile logFile(logPath);
+    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream stream(&logFile);
+        stream << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") << " [" << level << "] " << msg << "\n";
+        logFile.close();
+    }
+}
+
+// 修改init函数，添加重试逻辑
+bool DatabaseManager::init(const QString& dbPath)
+{
+    // 关闭已存在的连接
+    if (QSqlDatabase::contains("classboard_conn")) {
+        m_db = QSqlDatabase::database("classboard_conn");
+        if (m_db.isOpen()) return true;
+    }
+
+    // 设置路径
+    if (dbPath.isEmpty()) {
+        QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QDir appDir(appDataPath);
+        if (!appDir.exists() && !appDir.mkpath(".")) {
+            writeLog("ERROR", "创建AppData目录失败");
+            emit operateFailed("创建AppData目录失败");
+            return false;
+        }
+        m_dbPath = appDir.filePath(m_dbName);
+    } else {
+        m_dbPath = dbPath;
+    }
+
+    // 重试连接（最多3次）
+    int retryCount = 0;
+    while (retryCount < 3) {
+        m_db = QSqlDatabase::addDatabase("QSQLITE", "classboard_conn");
+        m_db.setDatabaseName(m_dbPath);
+        if (m_db.open()) {
+            break;
+        }
+        retryCount++;
+        writeLog("ERROR", QString("数据库连接失败（重试%1次）：%2").arg(retryCount).arg(m_db.lastError().text()));
+        QThread::msleep(500); // 休眠500ms重试
+    }
+
+    if (!m_db.isOpen()) {
+        QString errMsg = QString("数据库打开失败（重试3次）：%1").arg(m_db.lastError().text());
+        writeLog("ERROR", errMsg);
+        emit operateFailed(errMsg);
+        return false;
+    }
+
+    createTables();
+    writeLog("INFO", "数据库初始化成功，路径：" + m_dbPath);
+    emit operateSuccess("数据库初始化成功");
+    return true;
+}
+12.2 完善 NetworkWorker 异常处理
+cpp
+运行
+// src/network/NetworkWorker.cpp - 修改onReplyFinished，添加断网重试
+void NetworkWorker::onReplyFinished(QNetworkReply* reply)
+{
+    if (reply->error() != QNetworkReply::NoError) {
+        QString errMsg = QString("网络请求失败：%1").arg(reply->errorString());
+        writeLog("ERROR", errMsg); // 复用上面的writeLog函数
+        // 断网重试（最多2次）
+        static int retry = 0;
+        if (retry < 2) {
+            retry++;
+            writeLog("INFO", QString("断网重试（第%1次）").arg(retry));
+            QTimer::singleShot(3000, this, &NetworkWorker::onSyncTimerTimeout); // 3秒后重试
+        } else {
+            retry = 0;
+            emit syncFailed(errMsg);
+        }
+        reply->deleteLater();
+        return;
+    }
+
+    // 原有逻辑...
+    retry = 0; // 重置重试次数
 }
