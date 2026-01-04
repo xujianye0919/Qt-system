@@ -191,7 +191,7 @@ void MainWindow::updateCurrentCourse(const QVariantMap& course)
     ui->currentCourseTime->setText(QString("上课时间：%1 至 %2")
                                    .arg(course["start_time"].toString(), course["end_time"].toString()));
 
-    // 计算倒计时
+    // 调用TimeHelper计算倒计时（Qt 6静态函数直接调用）
     QString endTime = course["end_time"].toString();
     QString countdown = TimeHelper::getCountdown(endTime);
     ui->countdownLabel->setText(QString("倒计时：%1").arg(countdown));
