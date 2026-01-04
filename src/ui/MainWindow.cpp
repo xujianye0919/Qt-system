@@ -166,9 +166,13 @@ void MainWindow::onClassSelected(const QModelIndex& index)
 // 班级筛选事件
 void MainWindow::onSearchTextChanged(const QString& text)
 {
-    // 多列筛选（班级名称、教室编号、院系）
-    m_filterModel->setFilterKeyColumn(-1); // -1表示所有列
-    m_filterModel->setFilterFixedString(text);
+    // 多列模糊筛选（匹配班级名称/教室编号/院系）
+    m_filterModel->setFilterKeyColumn(-1); // -1表示筛选所有列
+    m_filterModel->setFilterFixedString(text); // 模糊匹配
+    // 筛选后自动选中第一行（如果有数据）
+    if (m_filterModel->rowCount() > 0 && !ui->classTableView->selectionModel()->hasSelection()) {
+        ui->classTableView->selectRow(0);
+    }
 }
 
 // 更新当前课程显示
