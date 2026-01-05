@@ -4,11 +4,15 @@
 #include <QObject>
 #include <QList>
 #include <QVariantMap>
-#include <QAxObject> // Qt 6 axcontainer模块（Windows）
+#include <QAxObject> // Qt 6 axcontainer模块
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QStandardPaths>
+#include <QDir>
+#include <QDateTime>
+#include "utility/LogHelper.h" // 包含公共日志头文件
 
-// 数据导出工具类（Qt 6，仅支持Windows）
+// 数据导出工具类（仅支持Windows）
 class ExportHelper : public QObject
 {
     Q_OBJECT
@@ -22,7 +26,7 @@ public:
     static bool exportNoticesToExcel(const QList<QVariantMap>& notices, const QString& fileName);
 
 private:
-    // 初始化Excel对象（Qt 6 QAxObject适配）
+    // 初始化Excel对象
     static QAxObject* initExcel();
     // 写入Excel工作表
     static bool writeToWorksheet(QAxObject* worksheet, const QList<QVariantMap>& data, const QStringList& headers);

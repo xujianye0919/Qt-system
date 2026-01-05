@@ -9,9 +9,15 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QTimer>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
 #include "data/DatabaseManager.h"
+#include "settings/SettingsManager.h"
+#include "utility/LogHelper.h" // 包含公共日志头文件
 
-// 网络同步线程类（Qt 6多线程适配）
+// 网络同步线程类（Qt 6.9.2多线程适配）
 class NetworkWorker : public QObject
 {
     Q_OBJECT
@@ -39,15 +45,14 @@ private slots:
     void onReplyFinished(QNetworkReply* reply);
 
 private:
-    QNetworkAccessManager* m_netManager; // 网络管理器（Qt 6）
+    QNetworkAccessManager* m_netManager; // 网络管理器
     QThread* m_workerThread;             // 工作线程
     QTimer* m_syncTimer;                 // 同步定时器
-    int m_syncInterval = 600;            // 默认同步间隔：10分钟（600秒）
-    QString m_serverUrl = "http://127.0.0.1:8080/api/sync"; // 模拟服务器地址
+    int m_syncInterval = 600;            // 默认10分钟
+    QString m_serverUrl;                 // 服务器地址
 
-    // 解析服务器JSON数据并同步到本地数据库
+    // 辅助函数
     void parseAndSyncData(const QByteArray& jsonData);
-    // 构建网络请求（添加请求头）
     QNetworkRequest buildRequest();
 };
 

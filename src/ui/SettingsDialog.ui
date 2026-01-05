@@ -74,6 +74,26 @@
        <property name="text">
         <string>http://127.0.0.1:8080/api/sync</string>
        </property>
+       <property name="placeholderText">
+        <string>例如：http://your-server:8080/api/sync</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="label_4">
+       <property name="text">
+        <string>自动同步：</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QCheckBox" name="autoSyncCheck">
+       <property name="text">
+        <string>启用定时同步</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
       </widget>
      </item>
     </layout>
@@ -81,6 +101,13 @@
    <!-- 按钮 -->
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <widget class="QPushButton" name="resetBtn">
+       <property name="text">
+        <string>恢复默认</string>
+       </property>
+      </widget>
+     </item>
      <item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
@@ -131,5 +158,58 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>saveBtn</sender>
+   <signal>clicked()</signal>
+   <receiver>SettingsDialog</receiver>
+   <slot>on_saveBtn_clicked()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>340</x>
+     <y>261</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>340</x>
+     <y>261</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>selectDbBtn</sender>
+   <signal>clicked()</signal>
+   <receiver>SettingsDialog</receiver>
+   <slot>on_selectDbBtn_clicked()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>420</x>
+     <y>120</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>420</x>
+     <y>120</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>resetBtn</sender>
+   <signal>clicked()</signal>
+   <receiver>SettingsDialog</receiver>
+   <slot>on_resetBtn_clicked()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>100</x>
+     <y>261</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>100</x>
+     <y>261</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
+ <slots>
+  <slot>on_saveBtn_clicked()</slot>
+  <slot>on_selectDbBtn_clicked()</slot>
+  <slot>on_resetBtn_clicked()</slot>
+ </slots>
 </ui>

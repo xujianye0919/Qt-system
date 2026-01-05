@@ -6,7 +6,7 @@
 #include <QString>
 #include <QDateTime>
 
-// 时间工具类（Qt 6适配）
+// 时间工具类（Qt 6.9.2适配）
 class TimeHelper : public QObject
 {
     Q_OBJECT

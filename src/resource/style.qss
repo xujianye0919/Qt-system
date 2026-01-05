@@ -1,4 +1,4 @@
-/* 全局样式（Qt 6适配） */
+/* 全局样式 - Qt 6.9.2适配 */
 QMainWindow, QDialog {
     background-color: #f5f5f5;
 }

@@ -4,6 +4,9 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QStandardPaths>
+#include <QDir>
+#include <QDebug>
 
 // 设置管理类（单例，Qt 6 QSettings适配）
 class SettingsManager : public QObject
@@ -33,7 +36,7 @@ private:
     SettingsManager(const SettingsManager&) = delete;
     SettingsManager& operator=(const SettingsManager&) = delete;
 
-    QSettings* m_settings; // Qt 6配置管理器（INI格式）
+    QSettings* m_settings; // 配置管理器
     // 默认配置
     int m_syncInterval = 600;
     QString m_dbPath = "";

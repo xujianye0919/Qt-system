@@ -1,7 +1,4 @@
 #include "DatabaseManager.h"
-#include <QFile>
-#include <QTextStream>
-#include <QDateTime>
 
 // 单例实例初始化
 DatabaseManager& DatabaseManager::instance()
@@ -10,68 +7,82 @@ DatabaseManager& DatabaseManager::instance()
     return instance;
 }
 
-// 初始化数据库
+// 初始化数据库（带重试逻辑）
 bool DatabaseManager::init(const QString& dbPath)
 {
-    // 关闭已存在的连接（Qt 6需避免重复连接）
+    // 关闭已存在的连接
     if (QSqlDatabase::contains("classboard_conn")) {
         m_db = QSqlDatabase::database("classboard_conn");
-        if (m_db.isOpen()) return true;
+        if (m_db.isOpen()) {
+            writeLog("INFO", "数据库已连接，路径：" + m_dbPath, "DATABASE"); // 调用公共日志
+            return true;
+        }
     }
 
-    // 设置数据库路径（优先使用传入路径，否则默认AppData目录）
+    // 设置数据库路径
     if (dbPath.isEmpty()) {
         QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         QDir appDir(appDataPath);
-        if (!appDir.exists()) {
-            if (!appDir.mkpath(".")) {
-                emit operateFailed("创建AppData目录失败");
-                return false;
-            }
+        if (!appDir.exists() && !appDir.mkpath(".")) {
+            writeLog("ERROR", "创建AppData目录失败", "DATABASE");
+            emit operateFailed("创建AppData目录失败");
+            return false;
         }
         m_dbPath = appDir.filePath(m_dbName);
     } else {
         m_dbPath = dbPath;
     }
 
-    // 加载SQLite驱动（Qt 6需确保sql模块已引入）
-    m_db = QSqlDatabase::addDatabase("QSQLITE", "classboard_conn");
-    m_db.setDatabaseName(m_dbPath);
+    // 重试连接（最多3次）
+    int retryCount = 0;
+    while (retryCount < 3) {
+        m_db = QSqlDatabase::addDatabase("QSQLITE", "classboard_conn");
+        m_db.setDatabaseName(m_dbPath);
 
-    // 打开数据库
-    if (!m_db.open()) {
-        QString errMsg = QString("数据库打开失败：%1").arg(m_db.lastError().text());
-        qCritical() << errMsg;
+        if (m_db.open()) {
+            writeLog("INFO", QString("数据库连接成功（重试%1次），路径：%2").arg(retryCount).arg(m_dbPath), "DATABASE");
+            break;
+        }
+
+        retryCount++;
+        writeLog("ERROR", QString("数据库连接失败（重试%1次）：%2").arg(retryCount).arg(m_db.lastError().text()), "DATABASE");
+        QThread::msleep(500); // 休眠500ms重试
+    }
+
+    if (!m_db.isOpen()) {
+        QString errMsg = QString("数据库打开失败（重试3次）：%1").arg(m_db.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
 
     // 创建数据表
     createTables();
-    qInfo() << "数据库初始化成功，路径：" << m_dbPath;
+    writeLog("INFO", "数据库初始化成功，路径：" + m_dbPath, "DATABASE");
     emit operateSuccess("数据库初始化成功");
     return true;
 }
 
-// 创建数据表（检查表是否存在）
+// 创建数据表
 void DatabaseManager::createTables()
 {
     QSqlQuery query(m_db);
-    QFile sqlFile(":/sql/create_tables.sql"); // 后续将SQL文件加入资源文件
+    QFile sqlFile(":/create_tables.sql");
 
-    // 读取SQL脚本并执行
+    // 优先从资源文件读取SQL
     if (sqlFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString sql = sqlFile.readAll();
         sqlFile.close();
-        // Qt 6支持批量执行SQL（分隔符;）
         QStringList sqlList = sql.split(";", Qt::SkipEmptyParts);
         for (const QString& sqlStmt : sqlList) {
             if (!query.exec(sqlStmt.trimmed())) {
-                qWarning() << "建表失败：" << query.lastError().text();
+                writeLog("WARNING", "建表失败：" + query.lastError().text(), "DATABASE");
             }
         }
     } else {
-        // 备用方案：直接执行建表SQL（避免资源文件问题）
+        // 备用方案：直接执行建表SQL
+        writeLog("WARNING", "未找到建表脚本，使用内置SQL", "DATABASE");
+
         query.exec(R"(
             CREATE TABLE IF NOT EXISTS class_info (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,6 +92,7 @@ void DatabaseManager::createTables()
                 department TEXT NOT NULL
             )
         )");
+
         query.exec(R"(
             CREATE TABLE IF NOT EXISTS course_schedule (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,6 +109,7 @@ void DatabaseManager::createTables()
                 FOREIGN KEY(class_id) REFERENCES class_info(id) ON DELETE CASCADE
             )
         )");
+
         query.exec(R"(
             CREATE TABLE IF NOT EXISTS notices (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,6 +121,7 @@ void DatabaseManager::createTables()
                 is_valid INTEGER DEFAULT 1
             )
         )");
+
         // 创建索引
         query.exec("CREATE INDEX IF NOT EXISTS idx_course_class_id ON course_schedule(class_id)");
         query.exec("CREATE INDEX IF NOT EXISTS idx_course_date ON course_schedule(start_date, end_date)");
@@ -129,10 +143,12 @@ bool DatabaseManager::addClass(const QString& roomNumber, const QString& classNa
     query.addBindValue(department);
 
     if (query.exec()) {
+        writeLog("INFO", "添加班级成功：" + className, "DATABASE");
         emit operateSuccess("班级添加成功");
         return true;
     } else {
         QString errMsg = QString("班级添加失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
@@ -145,10 +161,12 @@ bool DatabaseManager::deleteClass(int classId)
     query.addBindValue(classId);
 
     if (query.exec()) {
+        writeLog("INFO", "删除班级成功，ID：" + QString::number(classId), "DATABASE");
         emit operateSuccess("班级删除成功");
         return true;
     } else {
         QString errMsg = QString("班级删除失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
@@ -168,6 +186,8 @@ QList<QVariantMap> DatabaseManager::getAllClasses()
         classMap["department"] = query.value("department").toString();
         classList.append(classMap);
     }
+
+    writeLog("INFO", "查询所有班级，数量：" + QString::number(classList.size()), "DATABASE");
     return classList;
 }
 
@@ -195,8 +215,11 @@ QList<QVariantMap> DatabaseManager::searchClasses(const QString& keyword)
             classMap["department"] = query.value("department").toString();
             classList.append(classMap);
         }
+        writeLog("INFO", "搜索班级成功，关键词：" + keyword + "，数量：" + QString::number(classList.size()), "DATABASE");
     } else {
-        qWarning() << "班级搜索失败：" << query.lastError().text();
+        QString errMsg = "班级搜索失败：" + query.lastError().text();
+        writeLog("ERROR", errMsg, "DATABASE");
+        emit operateFailed(errMsg);
     }
     return classList;
 }
@@ -210,6 +233,7 @@ bool DatabaseManager::addCourse(int classId, const QString& courseName, const QS
     QString formattedStart = formatDate(startDate);
     QString formattedEnd = formatDate(endDate);
     if (formattedStart.isEmpty() || formattedEnd.isEmpty()) {
+        writeLog("ERROR", "日期格式错误：" + startDate + " / " + endDate, "DATABASE");
         emit operateFailed("日期格式错误（请使用YYYY-MM-DD）");
         return false;
     }
@@ -232,10 +256,12 @@ bool DatabaseManager::addCourse(int classId, const QString& courseName, const QS
     query.addBindValue(classroom);
 
     if (query.exec()) {
+        writeLog("INFO", "添加课程成功：" + courseName, "DATABASE");
         emit operateSuccess("课程添加成功");
         return true;
     } else {
         QString errMsg = QString("课程添加失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
@@ -248,10 +274,12 @@ bool DatabaseManager::deleteCourse(int courseId)
     query.addBindValue(courseId);
 
     if (query.exec()) {
+        writeLog("INFO", "删除课程成功，ID：" + QString::number(courseId), "DATABASE");
         emit operateSuccess("课程删除成功");
         return true;
     } else {
         QString errMsg = QString("课程删除失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
@@ -289,8 +317,10 @@ QList<QVariantMap> DatabaseManager::getCoursesByClassId(int classId)
             courseMap["classroom"] = query.value("classroom").toString();
             courseList.append(courseMap);
         }
+        writeLog("INFO", "查询班级课程成功，班级ID：" + QString::number(classId) + "，数量：" + QString::number(courseList.size()), "DATABASE");
     } else {
-        qWarning() << "课程查询失败：" << query.lastError().text();
+        QString errMsg = "课程查询失败：" + query.lastError().text();
+        writeLog("ERROR", errMsg, "DATABASE");
     }
     return courseList;
 }
@@ -325,6 +355,9 @@ QVariantMap DatabaseManager::getCurrentCourse(int classId)
         currentCourse["start_time"] = query.value("start_time").toString();
         currentCourse["end_time"] = query.value("end_time").toString();
         currentCourse["classroom"] = query.value("classroom").toString();
+        writeLog("INFO", "查询当前课程成功，班级ID：" + QString::number(classId) + "，课程：" + currentCourse["course_name"].toString(), "DATABASE");
+    } else {
+        writeLog("INFO", "当前无课程，班级ID：" + QString::number(classId), "DATABASE");
     }
     return currentCourse;
 }
@@ -359,6 +392,9 @@ QVariantMap DatabaseManager::getNextCourse(int classId)
         nextCourse["start_time"] = query.value("start_time").toString();
         nextCourse["end_time"] = query.value("end_time").toString();
         nextCourse["classroom"] = query.value("classroom").toString();
+        writeLog("INFO", "查询下节课成功，班级ID：" + QString::number(classId) + "，课程：" + nextCourse["course_name"].toString(), "DATABASE");
+    } else {
+        writeLog("INFO", "暂无下节课，班级ID：" + QString::number(classId), "DATABASE");
     }
     return nextCourse;
 }
@@ -379,10 +415,12 @@ bool DatabaseManager::addNotice(const QString& title, const QString& content, co
     query.addBindValue(isScrolling ? 1 : 0);
 
     if (query.exec()) {
+        writeLog("INFO", "添加通知成功：" + title, "DATABASE");
         emit operateSuccess("通知添加成功");
         return true;
     } else {
         QString errMsg = QString("通知添加失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
@@ -395,10 +433,12 @@ bool DatabaseManager::deleteNotice(int noticeId)
     query.addBindValue(noticeId);
 
     if (query.exec()) {
+        writeLog("INFO", "删除通知成功，ID：" + QString::number(noticeId), "DATABASE");
         emit operateSuccess("通知删除成功");
         return true;
     } else {
         QString errMsg = QString("通知删除失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
@@ -415,10 +455,13 @@ bool DatabaseManager::updateNoticeStatus(int noticeId, bool isScrolling, bool is
     query.addBindValue(noticeId);
 
     if (query.exec()) {
+        writeLog("INFO", QString("更新通知状态成功，ID：%1，滚动：%2，有效：%3")
+                 .arg(noticeId).arg(isScrolling).arg(isValid), "DATABASE");
         emit operateSuccess("通知状态更新成功");
         return true;
     } else {
         QString errMsg = QString("通知状态更新失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
         emit operateFailed(errMsg);
         return false;
     }
@@ -462,8 +505,11 @@ QList<QVariantMap> DatabaseManager::getValidNotices(bool isScrolling)
             }
             noticeList.append(noticeMap);
         }
+        writeLog("INFO", QString("查询有效通知成功，滚动筛选：%1，数量：%2")
+                 .arg(isScrolling).arg(noticeList.size()), "DATABASE");
     } else {
-        qWarning() << "通知查询失败：" << query.lastError().text();
+        QString errMsg = "通知查询失败：" + query.lastError().text();
+        writeLog("ERROR", errMsg, "DATABASE");
     }
     return noticeList;
 }
@@ -483,96 +529,10 @@ QString DatabaseManager::formatDate(const QString& dateStr)
     if (date.isValid()) {
         return date.toString("yyyy-MM-dd");
     }
-    // 兼容其他格式（如MM/dd/yyyy）
+    // 兼容MM/dd/yyyy格式
     date = QDate::fromString(dateStr, "MM/dd/yyyy");
     if (date.isValid()) {
         return date.toString("yyyy-MM-dd");
     }
     return "";
-}
-// 添加日志输出函数（辅助）
-static void writeLog(const QString& level, const QString& msg)
-{
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/classboard.log";
-    QFile logFile(logPath);
-    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
-        QTextStream stream(&logFile);
-        stream << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") << " [" << level << "] " << msg << "\n";
-        logFile.close();
-    }
-}
-
-// 修改init函数，添加重试逻辑
-bool DatabaseManager::init(const QString& dbPath)
-{
-    // 关闭已存在的连接
-    if (QSqlDatabase::contains("classboard_conn")) {
-        m_db = QSqlDatabase::database("classboard_conn");
-        if (m_db.isOpen()) return true;
-    }
-
-    // 设置路径
-    if (dbPath.isEmpty()) {
-        QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        QDir appDir(appDataPath);
-        if (!appDir.exists() && !appDir.mkpath(".")) {
-            writeLog("ERROR", "创建AppData目录失败");
-            emit operateFailed("创建AppData目录失败");
-            return false;
-        }
-        m_dbPath = appDir.filePath(m_dbName);
-    } else {
-        m_dbPath = dbPath;
-    }
-
-    // 重试连接（最多3次）
-    int retryCount = 0;
-    while (retryCount < 3) {
-        m_db = QSqlDatabase::addDatabase("QSQLITE", "classboard_conn");
-        m_db.setDatabaseName(m_dbPath);
-        if (m_db.open()) {
-            break;
-        }
-        retryCount++;
-        writeLog("ERROR", QString("数据库连接失败（重试%1次）：%2").arg(retryCount).arg(m_db.lastError().text()));
-        QThread::msleep(500); // 休眠500ms重试
-    }
-
-    if (!m_db.isOpen()) {
-        QString errMsg = QString("数据库打开失败（重试3次）：%1").arg(m_db.lastError().text());
-        writeLog("ERROR", errMsg);
-        emit operateFailed(errMsg);
-        return false;
-    }
-
-    createTables();
-    writeLog("INFO", "数据库初始化成功，路径：" + m_dbPath);
-    emit operateSuccess("数据库初始化成功");
-    return true;
-}
-12.2 完善 NetworkWorker 异常处理
-cpp
-运行
-// src/network/NetworkWorker.cpp - 修改onReplyFinished，添加断网重试
-void NetworkWorker::onReplyFinished(QNetworkReply* reply)
-{
-    if (reply->error() != QNetworkReply::NoError) {
-        QString errMsg = QString("网络请求失败：%1").arg(reply->errorString());
-        writeLog("ERROR", errMsg); // 复用上面的writeLog函数
-        // 断网重试（最多2次）
-        static int retry = 0;
-        if (retry < 2) {
-            retry++;
-            writeLog("INFO", QString("断网重试（第%1次）").arg(retry));
-            QTimer::singleShot(3000, this, &NetworkWorker::onSyncTimerTimeout); // 3秒后重试
-        } else {
-            retry = 0;
-            emit syncFailed(errMsg);
-        }
-        reply->deleteLater();
-        return;
-    }
-
-    // 原有逻辑...
-    retry = 0; // 重置重试次数
 }

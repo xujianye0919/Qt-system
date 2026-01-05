@@ -2,68 +2,78 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QSqlTableModel>
+#include <QStandardItemModel>
 #include <QSortFilterProxyModel>
 #include <QTimer>
-#include <QVariantMap>
+#include <QMessageBox>
+#include <QDateTime>
 #include "data/DatabaseManager.h"
+#include "network/NetworkWorker.h"
+#include "settings/SettingsManager.h"
+#include "utility/TimeHelper.h"
+#include "utility/ExportHelper.h"
 #include "ui/NoticeManager.h"
 #include "ui/SettingsDialog.h"
-#include "network/NetworkWorker.h"
 
-namespace Ui {
-class MainWindow; // Qt 6自动生成的UI类
-}
+QT_BEGIN_NAMESPACE
+namespace Ui { class MainWindow; }
+QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-public slots:
-    // 刷新UI（课程/通知/时间）
-    void refreshUI();
-    // 更新当前时间
-    void updateCurrentTime();
-    // 滚动通知
-    void scrollMarquee();
-
 private slots:
-    // 班级选中事件
-    void onClassSelected(const QModelIndex& index);
-    // 班级筛选事件
+    // 界面交互槽函数
+    void onClassSelected(int index);
     void onSearchTextChanged(const QString& text);
-    // 按钮点击事件
-    void on_settingsBtn_clicked();
-    void on_noticeBtn_clicked();
-    void on_exportBtn_clicked();
+    void onExportBtnClicked();
+    void onNoticeManagerBtnClicked();
+    void onSettingsBtnClicked();
+    
+    // 定时器槽函数
+    void updateCourseInfo();
+    void updateMarqueeNotice();
+    
+    // 辅助槽函数
+    void refreshUI();
+    void onSyncSuccess(const QString& msg);
+    void onSyncFailed(const QString& msg);
 
 private:
-    Ui::MainWindow *ui;                  // UI对象
-    QSqlTableModel* m_classModel;        // 班级模型
-    QSortFilterProxyModel* m_filterModel;// 筛选模型
-    QTimer* m_timeTimer;                 // 时间刷新定时器
-    QTimer* m_marqueeTimer;              // 滚动通知定时器
-    QTimer* m_refreshTimer;              // UI刷新定时器
-    int m_currentClassId = -1;           // 当前选中班级ID
-    QList<QVariantMap> m_notices;        // 滚动通知列表
-    int m_currentNoticeIndex = 0;        // 当前滚动通知索引
-    int m_marqueeOffset = 0;             // 滚动偏移量
-    NetworkWorker* m_networkWorker; // 网络同步对象
-
-    // 初始化Model/View
-    void initModel();
-    // 初始化定时器
-    void initTimer();
-    // 加载滚动通知
-    void loadMarqueeNotices();
-    // 更新当前课程显示
-    void updateCurrentCourse(const QVariantMap& course);
-    // 更新下节课显示
-    void updateNextCourse(const QVariantMap& course);
+    Ui::MainWindow *ui;
+    
+    // 数据模型
+    QStandardItemModel* m_courseModel;       // 课表模型
+    QSortFilterProxyModel* m_filterModel;    // 筛选模型
+    QStandardItemModel* m_classModel;        // 班级下拉框模型
+    
+    // 状态变量
+    int m_currentClassId = -1;               // 当前选中班级ID
+    QString m_currentClassName = "";         // 当前选中班级名称
+    
+    // 定时器
+    QTimer* m_courseTimer;                   // 课程信息更新定时器（1秒）
+    QTimer* m_noticeTimer;                   // 通知滚动定时器（5秒）
+    
+    // 核心组件
+    NetworkWorker* m_networkWorker;          // 网络同步组件
+    NoticeManager* m_noticeManager;          // 通知管理窗口
+    SettingsDialog* m_settingsDialog;        // 系统设置窗口
+    
+    // 辅助函数
+    void initUI();                           // 初始化UI
+    void initModels();                       // 初始化数据模型
+    void initTimers();                       // 初始化定时器
+    void loadClassList();                    // 加载班级列表
+    void loadCourseTable(int classId);       // 加载班级课表
+    void updateCurrentCourse(const QVariantMap& course); // 更新当前课程
+    void updateNextCourse(const QVariantMap& course);     // 更新下节课
+    void startMarquee(const QString& text);  // 启动通知滚动
 };
 
 #endif // MAINWINDOW_H

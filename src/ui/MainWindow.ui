@@ -11,25 +11,66 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>教室班牌信息展示系统</string>
+   <string>教室班牌信息展示系统 V1.0</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QVBoxLayout" name="verticalLayout_2">
-    <!-- 顶部区域 -->
+   <layout class="QVBoxLayout" name="verticalLayout_5">
+    <!-- 顶部标题栏 -->
     <item>
-     <layout class="QHBoxLayout" name="topLayout">
+     <widget class="QLabel" name="titleLabel">
+      <property name="text">
+       <string>教室班牌信息展示系统</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+      <property name="styleSheet">
+       <string>font-size: 24px; font-weight: bold; color: #2c3e50;</string>
+      </property>
+     </widget>
+    </item>
+    <!-- 班级选择+搜索栏 -->
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_1">
       <item>
-       <widget class="QLabel" name="titleLabel">
+       <widget class="QLabel" name="label_1">
         <property name="text">
-         <string>教室班牌信息展示系统</string>
+         <string>选择班级：</string>
         </property>
         <property name="styleSheet">
-         <string notr="true">font-size: 28px; font-weight: bold; color: #2c3e50;</string>
+         <string>font-size: 14px;</string>
         </property>
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacer">
+       <widget class="QComboBox" name="classComboBox">
+        <property name="minimumSize">
+         <size>
+          <width>300</width>
+          <height>0</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>搜索：</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size: 14px;</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="searchEdit">
+        <property name="placeholderText">
+         <string>输入班级/教室/院系关键词...</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_1">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
@@ -42,126 +83,53 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLabel" name="timeLabel">
+       <widget class="QPushButton" name="exportBtn">
         <property name="text">
-         <string>2024-01-01 00:00:00</string>
+         <string>导出数据</string>
         </property>
-        <property name="styleSheet">
-         <string notr="true">font-size: 18px; color: #34495e;</string>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="noticeManagerBtn">
+        <property name="text">
+         <string>通知管理</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="settingsBtn">
         <property name="text">
-         <string>设置</string>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>80</width>
-          <height>30</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="noticeBtn">
-        <property name="text">
-         <string>通知管理</string>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>80</width>
-          <height>30</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="exportBtn">
-        <property name="text">
-         <string>导出数据</string>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>80</width>
-          <height>30</height>
-         </size>
+         <string>系统设置</string>
         </property>
        </widget>
       </item>
      </layout>
     </item>
-    <!-- 中间核心区域 -->
+    <!-- 中间内容区（当前课程+课表） -->
     <item>
-     <layout class="QHBoxLayout" name="centralLayout">
-      <!-- 左侧班级区域 -->
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <!-- 左侧：当前/下节课信息 -->
       <item>
-       <layout class="QVBoxLayout" name="leftLayout">
-        <item>
-         <widget class="QLineEdit" name="searchEdit">
-          <property name="placeholderText">
-           <string>搜索班级/教室/院系...</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>300</width>
-            <height>35</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QTableView" name="classTableView">
-          <property name="minimumSize">
-           <size>
-            <width>300</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="selectionBehavior">
-           <enum>QAbstractItemView::SelectRows</enum>
-          </property>
-          <property name="editTriggers">
-           <set>QAbstractItemView::NoEditTriggers</set>
-          </property>
-          <property name="showGrid">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>30</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <!-- 右侧课程展示区域 -->
-      <item>
-       <layout class="QVBoxLayout" name="rightLayout">
-        <!-- 当前课程卡片 -->
+       <layout class="QVBoxLayout" name="verticalLayout_1">
         <item>
          <widget class="QFrame" name="currentCourseFrame">
-          <property name="styleSheet">
-           <string notr="true">background-color: #ecf0f1; border-radius: 15px; padding: 20px;</string>
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
           </property>
-          <layout class="QVBoxLayout" name="currentCourseLayout">
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_2">
            <item>
-            <widget class="QLabel" name="currentCourseTitle">
+            <widget class="QLabel" name="label_3">
              <property name="text">
               <string>当前课程</string>
              </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
              <property name="styleSheet">
-              <string notr="true">font-size: 20px; color: #7f8c8d; font-weight: 500;</string>
+              <string>font-size: 16px; font-weight: bold;</string>
              </property>
             </widget>
            </item>
@@ -170,11 +138,11 @@
              <property name="text">
               <string>暂无课程</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">font-size: 40px; font-weight: bold; color: #2c3e50; text-align: center;</string>
-             </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
+             </property>
+             <property name="styleSheet">
+              <string>font-size: 20px; color: #e74c3c;</string>
              </property>
             </widget>
            </item>
@@ -182,9 +150,6 @@
             <widget class="QLabel" name="currentCourseTeacher">
              <property name="text">
               <string>任课教师：暂无</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">font-size: 22px; color: #34495e; text-align: center;</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
@@ -196,9 +161,6 @@
              <property name="text">
               <string>上课时间：--:-- 至 --:--</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">font-size: 18px; color: #7f8c8d; text-align: center;</string>
-             </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
              </property>
@@ -207,10 +169,68 @@
            <item>
             <widget class="QLabel" name="countdownLabel">
              <property name="text">
-              <string>倒计时：--:--:--</string>
+              <string>倒计时：00:00:00</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
              </property>
              <property name="styleSheet">
-              <string notr="true">font-size: 24px; font-weight: bold; color: #e74c3c; text-align: center;</string>
+              <string>font-size: 18px; font-weight: bold; color: #e74c3c;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QFrame" name="nextCourseFrame">
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_3">
+           <item>
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>下一节课</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="styleSheet">
+              <string>font-size: 16px; font-weight: bold;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="nextCourseName">
+             <property name="text">
+              <string>暂无课程</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="styleSheet">
+              <string>font-size: 20px; color: #3498db;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="nextCourseTeacher">
+             <property name="text">
+              <string>任课教师：暂无</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="nextCourseTime">
+             <property name="text">
+              <string>上课时间：--:-- 至 --:--</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
@@ -220,51 +240,68 @@
           </layout>
          </widget>
         </item>
-        <!-- 下节课预告 -->
         <item>
-         <widget class="QFrame" name="nextCourseFrame">
-          <property name="styleSheet">
-           <string notr="true">background-color: #f8f9fa; border-radius: 15px; padding: 15px; margin-top: 15px;</string>
+         <spacer name="verticalSpacer_1">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
           </property>
-          <layout class="QVBoxLayout" name="nextCourseLayout">
-           <item>
-            <widget class="QLabel" name="nextCourseTitle">
-             <property name="text">
-              <string>下节课预告</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">font-size: 18px; color: #7f8c8d; font-weight: 500;</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLabel" name="nextCourseInfo">
-             <property name="text">
-              <string>课程名称：暂无 | 上课时间：--:-- | 教室：暂无</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">font-size: 20px; color: #34495e;</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <!-- 右侧：课表展示 -->
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_4">
+        <item>
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>本周课表</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="styleSheet">
+           <string>font-size: 18px; font-weight: bold;</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTableView" name="classTableView">
+          <property name="minimumSize">
+           <size>
+            <width>600</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="selectionBehavior">
+           <enum>QAbstractItemView::SelectRows</enum>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
+          </property>
          </widget>
         </item>
        </layout>
       </item>
      </layout>
     </item>
-    <!-- 底部滚动通知 -->
+    <!-- 底部：滚动通知栏 -->
     <item>
      <widget class="QLabel" name="marqueeLabel">
       <property name="text">
        <string>欢迎使用教室班牌信息展示系统 - 暂无滚动通知</string>
       </property>
-      <property name="styleSheet">
-       <string notr="true">background-color: #fff3cd; color: #856404; font-size: 16px; padding: 10px; border-radius: 5px; margin-top: 10px;</string>
-      </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
+      </property>
+      <property name="styleSheet">
+       <string>background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px;</string>
       </property>
      </widget>
     </item>
@@ -280,8 +317,101 @@
     </rect>
    </property>
   </widget>
+  <widget class="QStatusBar" name="statusBar">
+   <property name="styleSheet">
+    <string>background-color: #f8f9fa;</string>
+   </property>
+  </widget>
  </widget>
- <layoutdefault spacing="6" margin="11"/>
+ <layoutdefault spacing="10" margin="15"/>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>classComboBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>onClassSelected(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>200</x>
+     <y>100</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>200</x>
+     <y>100</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>searchEdit</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>onSearchTextChanged(QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>400</x>
+     <y>100</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>400</x>
+     <y>100</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>exportBtn</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>onExportBtnClicked()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>600</x>
+     <y>100</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>600</x>
+     <y>100</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>noticeManagerBtn</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>onNoticeManagerBtnClicked()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>700</x>
+     <y>100</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>700</x>
+     <y>100</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>settingsBtn</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>onSettingsBtnClicked()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>800</x>
+     <y>100</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>800</x>
+     <y>100</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>onClassSelected(int)</slot>
+  <slot>onSearchTextChanged(QString)</slot>
+  <slot>onExportBtnClicked()</slot>
+  <slot>onNoticeManagerBtnClicked()</slot>
+  <slot>onSettingsBtnClicked()</slot>
+ </slots>
 </ui>

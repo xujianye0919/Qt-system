@@ -10,7 +10,7 @@ QString TimeHelper::getCountdown(const QString& targetTimeStr)
         return "00:00:00";
     }
 
-    // 计算秒数差（目标时间 - 当前时间）
+    // 计算秒数差
     int diffSec = now.secsTo(target);
     if (diffSec <= 0) {
         return "00:00:00"; // 已结束
