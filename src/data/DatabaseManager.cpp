@@ -1,4 +1,5 @@
 #include "DatabaseManager.h"
+#include <QRegularExpression>
 
 // 单例实例初始化
 DatabaseManager& DatabaseManager::instance()
@@ -7,14 +8,14 @@ DatabaseManager& DatabaseManager::instance()
     return instance;
 }
 
-// 初始化数据库（带重试逻辑）
+// 初始化数据库（带重试逻辑，无清空旧数据）
 bool DatabaseManager::init(const QString& dbPath)
 {
     // 关闭已存在的连接
     if (QSqlDatabase::contains("classboard_conn")) {
         m_db = QSqlDatabase::database("classboard_conn");
         if (m_db.isOpen()) {
-            writeLog("INFO", "数据库已连接，路径：" + m_dbPath, "DATABASE"); // 调用公共日志
+            writeLog("INFO", "数据库已连接，路径：" + m_dbPath, "DATABASE");
             return true;
         }
     }
@@ -58,43 +59,111 @@ bool DatabaseManager::init(const QString& dbPath)
 
     // 创建数据表
     createTables();
+
     writeLog("INFO", "数据库初始化成功，路径：" + m_dbPath, "DATABASE");
     emit operateSuccess("数据库初始化成功");
     return true;
 }
 
-// 创建数据表
+// 辅助函数：清理SQL语句中的单行注释和空白（仅保留这一个定义）
+QString DatabaseManager::cleanSqlStatement(const QString& stmt)
+{
+    // 移除单行注释（-- 到行尾）
+    QString cleanStmt = stmt;
+    QRegularExpression commentRegex("--.*$", QRegularExpression::MultilineOption);
+    cleanStmt = cleanStmt.replace(commentRegex, "");
+    // 移除多余空白（换行、制表符、多个空格）
+    cleanStmt = cleanStmt.replace(QRegularExpression("\\s+"), " ");
+    cleanStmt = cleanStmt.trimmed();
+    return cleanStmt;
+}
+
+// 创建数据表（修复建表语句解析+执行顺序）
 void DatabaseManager::createTables()
 {
     QSqlQuery query(m_db);
-    QFile sqlFile(":/create_tables.sql");
 
-    // 优先从资源文件读取SQL
+    // -------------------------- 读取建表脚本 --------------------------
+    QFile sqlFile(":/sql/create_tables.sql");
+    writeLog("INFO", "尝试读取建表脚本：:/sql/create_tables.sql", "DATABASE");
+
     if (sqlFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QString sql = sqlFile.readAll();
+        // 处理UTF-8 BOM
+        QByteArray content = sqlFile.readAll();
+        if (content.startsWith("\xef\xbb\xbf")) {
+            content = content.mid(3);
+            writeLog("INFO", "检测到UTF-8 BOM，已移除", "DATABASE");
+        }
+        QString sql = QString::fromUtf8(content);
         sqlFile.close();
+
+        writeLog("INFO", "建表脚本内容（前200字符）：" + sql.left(200) + "...", "DATABASE");
+
+        // 分割SQL语句（按分号分割，保留有效语句）
         QStringList sqlList = sql.split(";", Qt::SkipEmptyParts);
-        for (const QString& sqlStmt : sqlList) {
-            if (!query.exec(sqlStmt.trimmed())) {
-                writeLog("WARNING", "建表失败：" + query.lastError().text(), "DATABASE");
+        writeLog("INFO", "建表脚本分割后语句数量：" + QString::number(sqlList.size()), "DATABASE");
+
+        // 先执行建表语句，再执行索引语句（保证顺序）
+        QStringList createTableStmts; // 建表语句
+        QStringList createIndexStmts; // 索引语句
+
+        for (int i = 0; i < sqlList.size(); i++) {
+            QString rawStmt = sqlList[i];
+            QString cleanStmt = cleanSqlStatement(rawStmt); // 清理注释和空白
+
+            // 跳过清理后为空的语句
+            if (cleanStmt.isEmpty()) {
+                writeLog("INFO", QString("跳过建表语句%1：清理后为空").arg(i+1), "DATABASE");
+                continue;
+            }
+
+            // 分类：建表/索引语句
+            if (cleanStmt.startsWith("CREATE TABLE", Qt::CaseInsensitive) ||
+                cleanStmt.startsWith("DROP TABLE", Qt::CaseInsensitive)) {
+                createTableStmts.append(cleanStmt);
+            } else if (cleanStmt.startsWith("CREATE INDEX", Qt::CaseInsensitive)) {
+                createIndexStmts.append(cleanStmt);
+            }
+
+            // 执行当前语句（兼容原有逻辑，同时分类）
+            if (!query.exec(cleanStmt)) {
+                writeLog("WARNING", QString("建表语句%1执行失败：%2 | 清理后SQL：%3")
+                         .arg(i+1).arg(query.lastError().text()).arg(cleanStmt.left(100)), "DATABASE");
+            } else {
+                writeLog("INFO", QString("建表语句%1执行成功 | 类型：%2")
+                         .arg(i+1).arg(cleanStmt.startsWith("CREATE TABLE") ? "建表" : "索引"), "DATABASE");
             }
         }
+
+        // 兜底：若索引语句执行失败，单独再执行一次（确保表已创建）
+        if (!createIndexStmts.isEmpty()) {
+            writeLog("INFO", "兜底执行索引创建语句，共" + QString::number(createIndexStmts.size()) + "条", "DATABASE");
+            for (int i = 0; i < createIndexStmts.size(); i++) {
+                if (!query.exec(createIndexStmts[i])) {
+                    writeLog("WARNING", QString("兜底创建索引%1失败：%2").arg(i+1).arg(query.lastError().text()), "DATABASE");
+                } else {
+                    writeLog("INFO", QString("兜底创建索引%1成功").arg(i+1), "DATABASE");
+                }
+            }
+        }
+
+        writeLog("INFO", "从资源文件加载建表脚本成功", "DATABASE");
     } else {
-        // 备用方案：直接执行建表SQL
         writeLog("WARNING", "未找到建表脚本，使用内置SQL", "DATABASE");
 
-        query.exec(R"(
-            CREATE TABLE IF NOT EXISTS class_info (
+        // 备用内置建表SQL（保证先建表再建索引）
+        QStringList builtInSql = {
+            R"(DROP TABLE IF EXISTS course_schedule)",
+            R"(DROP TABLE IF EXISTS class_info)",
+            R"(DROP TABLE IF EXISTS notices)",
+            R"(CREATE TABLE IF NOT EXISTS class_info (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 room_number TEXT NOT NULL UNIQUE,
                 class_name TEXT NOT NULL,
                 grade TEXT NOT NULL,
                 department TEXT NOT NULL
-            )
-        )");
-
-        query.exec(R"(
-            CREATE TABLE IF NOT EXISTS course_schedule (
+            ))",
+            R"(CREATE TABLE IF NOT EXISTS course_schedule (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 class_id INTEGER NOT NULL,
                 course_name TEXT NOT NULL,
@@ -107,11 +176,8 @@ void DatabaseManager::createTables()
                 end_date TEXT NOT NULL,
                 classroom TEXT,
                 FOREIGN KEY(class_id) REFERENCES class_info(id) ON DELETE CASCADE
-            )
-        )");
-
-        query.exec(R"(
-            CREATE TABLE IF NOT EXISTS notices (
+            ))",
+            R"(CREATE TABLE IF NOT EXISTS notices (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 content TEXT NOT NULL,
@@ -119,13 +185,97 @@ void DatabaseManager::createTables()
                 expire_time TEXT,
                 is_scrolling INTEGER DEFAULT 0,
                 is_valid INTEGER DEFAULT 1
-            )
-        )");
+            ))",
+            R"(CREATE INDEX IF NOT EXISTS idx_course_class_id ON course_schedule(class_id))",
+            R"(CREATE INDEX IF NOT EXISTS idx_course_date ON course_schedule(start_date, end_date))",
+            R"(CREATE INDEX IF NOT EXISTS idx_notices_valid ON notices(is_valid, expire_time))"
+        };
 
-        // 创建索引
-        query.exec("CREATE INDEX IF NOT EXISTS idx_course_class_id ON course_schedule(class_id)");
-        query.exec("CREATE INDEX IF NOT EXISTS idx_course_date ON course_schedule(start_date, end_date)");
-        query.exec("CREATE INDEX IF NOT EXISTS idx_notices_valid ON notices(is_valid, expire_time)");
+        for (int i = 0; i < builtInSql.size(); i++) {
+            if (!query.exec(builtInSql[i])) {
+                writeLog("WARNING", QString("内置建表语句%1执行失败：%2").arg(i+1).arg(query.lastError().text()), "DATABASE");
+            } else {
+                writeLog("INFO", QString("内置建表语句%1执行成功").arg(i+1), "DATABASE");
+            }
+        }
+    }
+
+    // -------------------------- 导入测试数据（仅当无班级数据时） --------------------------
+    // 先检查class_info是否已有数据
+    query.exec("SELECT COUNT(*) FROM class_info");
+    int classCount = 0;
+    if (query.next()) {
+        classCount = query.value(0).toInt();
+    }
+    writeLog("INFO", QString("检测到现有班级数据数量：%1").arg(classCount), "DATABASE");
+
+    if (classCount > 0) {
+        writeLog("INFO", "已有班级数据，跳过测试数据导入", "DATABASE");
+        return;
+    }
+
+    QFile testSqlFile(":/sql/test_data.sql");
+    writeLog("INFO", "尝试读取测试数据脚本：:/sql/test_data.sql", "DATABASE");
+
+    if (testSqlFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        // 处理UTF-8 BOM
+        QByteArray testContent = testSqlFile.readAll();
+        if (testContent.startsWith("\xef\xbb\xbf")) {
+            testContent = testContent.mid(3);
+            writeLog("INFO", "测试数据脚本检测到UTF-8 BOM，已移除", "DATABASE");
+        }
+        QString testSql = QString::fromUtf8(testContent);
+        testSqlFile.close();
+
+        writeLog("INFO", "测试数据脚本总长度：" + QString::number(testSql.length()) + "字符", "DATABASE");
+        writeLog("INFO", "测试数据脚本前300字符：" + testSql.left(300) + "...", "DATABASE");
+
+        // 分割SQL语句（按分号分割）
+        QStringList testSqlList = testSql.split(";", Qt::SkipEmptyParts);
+        writeLog("INFO", "测试数据脚本分割后语句数量：" + QString::number(testSqlList.size()), "DATABASE");
+
+        int successCount = 0;
+        int failCount = 0;
+        int skipCount = 0;
+
+        for (int i = 0; i < testSqlList.size(); i++) {
+            QString rawStmt = testSqlList[i];
+            QString cleanStmt = cleanSqlStatement(rawStmt); // 清理注释和空白
+
+            // 跳过清理后为空的语句
+            if (cleanStmt.isEmpty()) {
+                skipCount++;
+                writeLog("INFO", QString("测试数据语句%1：清理后为空，跳过").arg(i+1), "DATABASE");
+                continue;
+            }
+
+            // 执行清理后的有效SQL
+            writeLog("INFO", QString("测试数据语句%1：执行SQL -> %2")
+                     .arg(i+1).arg(cleanStmt.left(100) + (cleanStmt.length()>100 ? "..." : "")), "DATABASE");
+
+            if (query.exec(cleanStmt)) {
+                successCount++;
+                writeLog("INFO", QString("测试数据语句%1：执行成功").arg(i+1), "DATABASE");
+            } else {
+                failCount++;
+                writeLog("ERROR", QString("测试数据语句%1：执行失败 -> %2 | 清理后SQL：%3")
+                         .arg(i+1).arg(query.lastError().text()).arg(cleanStmt.left(200)), "DATABASE");
+            }
+        }
+
+        // 输出导入统计
+        writeLog("INFO", QString("测试数据导入统计：成功%1条 | 失败%2条 | 跳过%3条")
+                 .arg(successCount).arg(failCount).arg(skipCount), "DATABASE");
+
+        if (failCount == 0 && successCount > 0) {
+            writeLog("INFO", "从test_data.sql导入测试数据成功", "DATABASE");
+        } else if (successCount == 0 && failCount == 0) {
+            writeLog("ERROR", "测试数据导入失败：无有效可执行的SQL语句", "DATABASE");
+        } else {
+            writeLog("ERROR", "测试数据导入部分失败，需检查SQL语句", "DATABASE");
+        }
+    } else {
+        writeLog("WARNING", "未找到test_data.sql，跳过测试数据导入 | 错误：" + testSqlFile.errorString(), "DATABASE");
     }
 }
 
@@ -188,6 +338,18 @@ QList<QVariantMap> DatabaseManager::getAllClasses()
     }
 
     writeLog("INFO", "查询所有班级，数量：" + QString::number(classList.size()), "DATABASE");
+
+    // 额外日志：输出查询到的班级列表
+    if (classList.isEmpty()) {
+        writeLog("WARNING", "查询所有班级：结果为空", "DATABASE");
+    } else {
+        QString classNames;
+        for (const QVariantMap& cls : classList) {
+            classNames += cls["class_name"].toString() + ",";
+        }
+        writeLog("INFO", "查询到的班级列表：" + classNames.left(classNames.length()-1), "DATABASE");
+    }
+
     return classList;
 }
 
@@ -399,7 +561,7 @@ QVariantMap DatabaseManager::getNextCourse(int classId)
     return nextCourse;
 }
 
-// -------------------------- 通知管理实现 --------------------------
+// -------------------------- 通知管理实现（修复参数不匹配） --------------------------
 bool DatabaseManager::addNotice(const QString& title, const QString& content, const QString& publishTime,
                                const QString& expireTime, bool isScrolling)
 {
@@ -473,24 +635,28 @@ QList<QVariantMap> DatabaseManager::getValidNotices(bool isScrolling)
     QString today = QDate::currentDate().toString("yyyy-MM-dd");
 
     QSqlQuery query(m_db);
+    QString sql;
+    // 修复参数数量不匹配：统一SQL模板，仅调整筛选条件
     if (isScrolling) {
-        query.prepare(R"(
+        sql = R"(
             SELECT id, title, content, publish_time, expire_time
             FROM notices
             WHERE is_valid = 1 AND is_scrolling = 1
                   AND (expire_time IS NULL OR expire_time >= ?)
             ORDER BY publish_time DESC
-        )");
-        query.addBindValue(today);
+        )";
     } else {
-        query.prepare(R"(
+        sql = R"(
             SELECT id, title, content, publish_time, expire_time, is_scrolling
             FROM notices
             WHERE is_valid = 1 AND (expire_time IS NULL OR expire_time >= ?)
             ORDER BY publish_time DESC
-        )");
-        query.addBindValue(today);
+        )";
     }
+
+    // 预处理+绑定参数（仅1个参数，避免数量不匹配）
+    query.prepare(sql);
+    query.addBindValue(today); // 仅绑定1个参数，适配两种场景
 
     if (query.exec()) {
         while (query.next()) {
@@ -507,6 +673,17 @@ QList<QVariantMap> DatabaseManager::getValidNotices(bool isScrolling)
         }
         writeLog("INFO", QString("查询有效通知成功，滚动筛选：%1，数量：%2")
                  .arg(isScrolling).arg(noticeList.size()), "DATABASE");
+
+        // 额外日志：输出通知列表
+        if (noticeList.isEmpty()) {
+            writeLog("WARNING", "查询有效通知：结果为空", "DATABASE");
+        } else {
+            QString noticeTitles;
+            for (const QVariantMap& notice : noticeList) {
+                noticeTitles += notice["title"].toString() + ",";
+            }
+            writeLog("INFO", "查询到的通知列表：" + noticeTitles.left(noticeTitles.length()-1), "DATABASE");
+        }
     } else {
         QString errMsg = "通知查询失败：" + query.lastError().text();
         writeLog("ERROR", errMsg, "DATABASE");

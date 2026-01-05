@@ -4,8 +4,8 @@ QT       += core gui widgets sql network concurrent printsupport
 # Qt 6 兼容模块
 greaterThan(QT_MAJOR_VERSION, 5): QT += core5compat
 
-# 在ClassBoardSystem.pro中增加：
-DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000 # 禁用Qt 6前的废弃API
+# 禁用Qt 6前的废弃API
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000 
 
 # 目标名称与编译模式
 TARGET = ClassBoardSystem
@@ -45,6 +45,9 @@ FORMS += \
 # 资源文件
 RESOURCES += \
     src/resource/resource.qrc
+    src/resource/style.qss
+    src/resource/create_tables.sql
+    src/resource/test_data.sql
 
 # 包含路径
 INCLUDEPATH += src
@@ -74,7 +77,6 @@ CONFIG(debug, debug|release): {
 # Windows平台适配（Excel导出）
 win32: {
     QT += axcontainer
-    # 拷贝SQL脚本到输出目录
     copy_sql.files = sql/create_tables.sql sql/test_data.sql
     copy_sql.path = $$DESTDIR/sql
     INSTALLS += copy_sql

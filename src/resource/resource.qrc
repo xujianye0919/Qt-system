@@ -1,7 +1,9 @@
 <RCC>
-    <qresource prefix="/">
+    <qresource prefix="/sql">
+        <file alias="create_tables.sql">create_tables.sql</file>
+        <file alias="test_data.sql">test_data.sql</file>
+    </qresource>
+    <qresource prefix="/style">
         <file>style.qss</file>
-        <file>../../sql/create_tables.sql</file>
-        <file>../../sql/test_data.sql</file>
     </qresource>
 </RCC>

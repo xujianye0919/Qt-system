@@ -67,6 +67,7 @@ private:
     void createTables();
     bool isDateInRange(const QString& checkDate, const QString& startDate, const QString& endDate);
     QString formatDate(const QString& dateStr);
+    QString cleanSqlStatement(const QString& stmt);
 
 private:
     QSqlDatabase m_db;          // 数据库连接

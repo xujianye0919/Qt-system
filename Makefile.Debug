@@ -149,8 +149,8 @@ compiler_rcc_clean:
 debug/rcc/qrc_resource.cpp: src/resource/resource.qrc \
 		D:/Qt/6.9.2/mingw_64/bin/rcc.exe \
 		src/resource/style.qss \
-		sql/test_data.sql \
-		sql/create_tables.sql
+		src/resource/test_data.sql \
+		src/resource/create_tables.sql
 	D:\Qt\6.9.2\mingw_64\bin\rcc.exe -name resource --no-zstd src\resource\resource.qrc -o debug\rcc\qrc_resource.cpp
 
 compiler_moc_predefs_make_all: debug/moc/moc_predefs.h
@@ -2470,7 +2470,9 @@ debug/obj/DatabaseManager.o: src/data/DatabaseManager.cpp src/data/DatabaseManag
 		D:/Qt/6.9.2/mingw_64/include/QtCore/QThread \
 		D:/Qt/6.9.2/mingw_64/include/QtCore/qthread.h \
 		src/utility/LogHelper.h \
-		D:/Qt/6.9.2/mingw_64/include/QtCore/QString
+		D:/Qt/6.9.2/mingw_64/include/QtCore/QString \
+		D:/Qt/6.9.2/mingw_64/include/QtCore/QRegularExpression \
+		D:/Qt/6.9.2/mingw_64/include/QtCore/qregularexpression.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o debug\obj\DatabaseManager.o src\data\DatabaseManager.cpp
 
 debug/obj/NetworkWorker.o: src/network/NetworkWorker.cpp src/network/NetworkWorker.h \
@@ -4090,20 +4092,9 @@ debug/obj/moc_ExportHelper.o: debug/moc/moc_ExportHelper.cpp
 
 ####### Install
 
-install_copy_sql: first FORCE
-	@if not exist E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql mkdir E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql & if not exist E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql exit 1
-	$(QINSTALL) E:\Qt\Qtcode\ClassBoardSystem\sql\create_tables.sql E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql\create_tables.sql
-	$(QINSTALL) E:\Qt\Qtcode\ClassBoardSystem\sql\test_data.sql E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql\test_data.sql
+install:  FORCE
 
-uninstall_copy_sql: FORCE
-	-$(DEL_FILE) E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql\test_data.sql
-	-$(DEL_FILE) E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql\create_tables.sql
-	-$(DEL_DIR) E:$(INSTALL_ROOT:@msyshack@%=%)\Qt\Qtcode\ClassBoardSystem\.\debug\sql 
-
-
-install: install_copy_sql  FORCE
-
-uninstall: uninstall_copy_sql  FORCE
+uninstall:  FORCE
 
 FORCE:
 
