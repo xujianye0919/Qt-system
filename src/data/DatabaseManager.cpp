@@ -15,7 +15,7 @@ bool DatabaseManager::init(const QString& dbPath)
     if (QSqlDatabase::contains("classboard_conn")) {
         m_db = QSqlDatabase::database("classboard_conn");
         if (m_db.isOpen()) {
-            writeLog("INFO", "数据库已连接，路径：" + m_dbPath, "DATABASE");
+            writeLog("INFO", "数据库已连接", "DATABASE");
             return true;
         }
     }
@@ -41,7 +41,7 @@ bool DatabaseManager::init(const QString& dbPath)
         m_db.setDatabaseName(m_dbPath);
 
         if (m_db.open()) {
-            writeLog("INFO", QString("数据库连接成功（重试%1次），路径：%2").arg(retryCount).arg(m_dbPath), "DATABASE");
+            writeLog("INFO", "数据库连接成功", "DATABASE");
             break;
         }
 
@@ -60,7 +60,7 @@ bool DatabaseManager::init(const QString& dbPath)
     // 创建数据表
     createTables();
 
-    writeLog("INFO", "数据库初始化成功，路径：" + m_dbPath, "DATABASE");
+    writeLog("INFO", "数据库初始化成功", "DATABASE");
     emit operateSuccess("数据库初始化成功");
     return true;
 }
@@ -78,30 +78,25 @@ QString DatabaseManager::cleanSqlStatement(const QString& stmt)
     return cleanStmt;
 }
 
-// 创建数据表（修复建表语句解析+执行顺序）
+// 创建数据表（移除所有内置SQL，仅保留资源文件读取逻辑）
 void DatabaseManager::createTables()
 {
     QSqlQuery query(m_db);
 
     // -------------------------- 读取建表脚本 --------------------------
     QFile sqlFile(":/sql/create_tables.sql");
-    writeLog("INFO", "尝试读取建表脚本：:/sql/create_tables.sql", "DATABASE");
 
     if (sqlFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         // 处理UTF-8 BOM
         QByteArray content = sqlFile.readAll();
         if (content.startsWith("\xef\xbb\xbf")) {
             content = content.mid(3);
-            writeLog("INFO", "检测到UTF-8 BOM，已移除", "DATABASE");
         }
         QString sql = QString::fromUtf8(content);
         sqlFile.close();
 
-        writeLog("INFO", "建表脚本内容（前200字符）：" + sql.left(200) + "...", "DATABASE");
-
         // 分割SQL语句（按分号分割，保留有效语句）
         QStringList sqlList = sql.split(";", Qt::SkipEmptyParts);
-        writeLog("INFO", "建表脚本分割后语句数量：" + QString::number(sqlList.size()), "DATABASE");
 
         // 先执行建表语句，再执行索引语句（保证顺序）
         QStringList createTableStmts; // 建表语句
@@ -113,7 +108,6 @@ void DatabaseManager::createTables()
 
             // 跳过清理后为空的语句
             if (cleanStmt.isEmpty()) {
-                writeLog("INFO", QString("跳过建表语句%1：清理后为空").arg(i+1), "DATABASE");
                 continue;
             }
 
@@ -125,79 +119,14 @@ void DatabaseManager::createTables()
                 createIndexStmts.append(cleanStmt);
             }
 
-            // 执行当前语句（兼容原有逻辑，同时分类）
+            // 执行当前语句
             if (!query.exec(cleanStmt)) {
-                writeLog("WARNING", QString("建表语句%1执行失败：%2 | 清理后SQL：%3")
-                         .arg(i+1).arg(query.lastError().text()).arg(cleanStmt.left(100)), "DATABASE");
-            } else {
-                writeLog("INFO", QString("建表语句%1执行成功 | 类型：%2")
-                         .arg(i+1).arg(cleanStmt.startsWith("CREATE TABLE") ? "建表" : "索引"), "DATABASE");
+                writeLog("WARNING", QString("建表语句执行失败：%1").arg(query.lastError().text()), "DATABASE");
             }
         }
-
-        // 兜底：若索引语句执行失败，单独再执行一次（确保表已创建）
-        if (!createIndexStmts.isEmpty()) {
-            writeLog("INFO", "兜底执行索引创建语句，共" + QString::number(createIndexStmts.size()) + "条", "DATABASE");
-            for (int i = 0; i < createIndexStmts.size(); i++) {
-                if (!query.exec(createIndexStmts[i])) {
-                    writeLog("WARNING", QString("兜底创建索引%1失败：%2").arg(i+1).arg(query.lastError().text()), "DATABASE");
-                } else {
-                    writeLog("INFO", QString("兜底创建索引%1成功").arg(i+1), "DATABASE");
-                }
-            }
-        }
-
-        writeLog("INFO", "从资源文件加载建表脚本成功", "DATABASE");
     } else {
-        writeLog("WARNING", "未找到建表脚本，使用内置SQL", "DATABASE");
-
-        // 备用内置建表SQL（保证先建表再建索引）
-        QStringList builtInSql = {
-            R"(DROP TABLE IF EXISTS course_schedule)",
-            R"(DROP TABLE IF EXISTS class_info)",
-            R"(DROP TABLE IF EXISTS notices)",
-            R"(CREATE TABLE IF NOT EXISTS class_info (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                room_number TEXT NOT NULL UNIQUE,
-                class_name TEXT NOT NULL,
-                grade TEXT NOT NULL,
-                department TEXT NOT NULL
-            ))",
-            R"(CREATE TABLE IF NOT EXISTS course_schedule (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                class_id INTEGER NOT NULL,
-                course_name TEXT NOT NULL,
-                teacher TEXT NOT NULL,
-                course_type TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time TEXT NOT NULL,
-                day_of_week INTEGER NOT NULL,
-                start_date TEXT NOT NULL,
-                end_date TEXT NOT NULL,
-                classroom TEXT,
-                FOREIGN KEY(class_id) REFERENCES class_info(id) ON DELETE CASCADE
-            ))",
-            R"(CREATE TABLE IF NOT EXISTS notices (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                content TEXT NOT NULL,
-                publish_time TEXT NOT NULL,
-                expire_time TEXT,
-                is_scrolling INTEGER DEFAULT 0,
-                is_valid INTEGER DEFAULT 1
-            ))",
-            R"(CREATE INDEX IF NOT EXISTS idx_course_class_id ON course_schedule(class_id))",
-            R"(CREATE INDEX IF NOT EXISTS idx_course_date ON course_schedule(start_date, end_date))",
-            R"(CREATE INDEX IF NOT EXISTS idx_notices_valid ON notices(is_valid, expire_time))"
-        };
-
-        for (int i = 0; i < builtInSql.size(); i++) {
-            if (!query.exec(builtInSql[i])) {
-                writeLog("WARNING", QString("内置建表语句%1执行失败：%2").arg(i+1).arg(query.lastError().text()), "DATABASE");
-            } else {
-                writeLog("INFO", QString("内置建表语句%1执行成功").arg(i+1), "DATABASE");
-            }
-        }
+        // 移除内置SQL后，仅打印错误日志，不执行任何建表操作
+        writeLog("ERROR", "未找到建表脚本：:/sql/create_tables.sql，无法创建数据表", "DATABASE");
     }
 
     // -------------------------- 导入测试数据（仅当无班级数据时） --------------------------
@@ -207,36 +136,23 @@ void DatabaseManager::createTables()
     if (query.next()) {
         classCount = query.value(0).toInt();
     }
-    writeLog("INFO", QString("检测到现有班级数据数量：%1").arg(classCount), "DATABASE");
 
     if (classCount > 0) {
-        writeLog("INFO", "已有班级数据，跳过测试数据导入", "DATABASE");
         return;
     }
 
     QFile testSqlFile(":/sql/test_data.sql");
-    writeLog("INFO", "尝试读取测试数据脚本：:/sql/test_data.sql", "DATABASE");
-
     if (testSqlFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         // 处理UTF-8 BOM
         QByteArray testContent = testSqlFile.readAll();
         if (testContent.startsWith("\xef\xbb\xbf")) {
             testContent = testContent.mid(3);
-            writeLog("INFO", "测试数据脚本检测到UTF-8 BOM，已移除", "DATABASE");
         }
         QString testSql = QString::fromUtf8(testContent);
         testSqlFile.close();
 
-        writeLog("INFO", "测试数据脚本总长度：" + QString::number(testSql.length()) + "字符", "DATABASE");
-        writeLog("INFO", "测试数据脚本前300字符：" + testSql.left(300) + "...", "DATABASE");
-
         // 分割SQL语句（按分号分割）
         QStringList testSqlList = testSql.split(";", Qt::SkipEmptyParts);
-        writeLog("INFO", "测试数据脚本分割后语句数量：" + QString::number(testSqlList.size()), "DATABASE");
-
-        int successCount = 0;
-        int failCount = 0;
-        int skipCount = 0;
 
         for (int i = 0; i < testSqlList.size(); i++) {
             QString rawStmt = testSqlList[i];
@@ -244,38 +160,14 @@ void DatabaseManager::createTables()
 
             // 跳过清理后为空的语句
             if (cleanStmt.isEmpty()) {
-                skipCount++;
-                writeLog("INFO", QString("测试数据语句%1：清理后为空，跳过").arg(i+1), "DATABASE");
                 continue;
             }
 
             // 执行清理后的有效SQL
-            writeLog("INFO", QString("测试数据语句%1：执行SQL -> %2")
-                     .arg(i+1).arg(cleanStmt.left(100) + (cleanStmt.length()>100 ? "..." : "")), "DATABASE");
-
-            if (query.exec(cleanStmt)) {
-                successCount++;
-                writeLog("INFO", QString("测试数据语句%1：执行成功").arg(i+1), "DATABASE");
-            } else {
-                failCount++;
-                writeLog("ERROR", QString("测试数据语句%1：执行失败 -> %2 | 清理后SQL：%3")
-                         .arg(i+1).arg(query.lastError().text()).arg(cleanStmt.left(200)), "DATABASE");
+            if (!query.exec(cleanStmt)) {
+                writeLog("ERROR", QString("测试数据语句执行失败：%1").arg(query.lastError().text()), "DATABASE");
             }
         }
-
-        // 输出导入统计
-        writeLog("INFO", QString("测试数据导入统计：成功%1条 | 失败%2条 | 跳过%3条")
-                 .arg(successCount).arg(failCount).arg(skipCount), "DATABASE");
-
-        if (failCount == 0 && successCount > 0) {
-            writeLog("INFO", "从test_data.sql导入测试数据成功", "DATABASE");
-        } else if (successCount == 0 && failCount == 0) {
-            writeLog("ERROR", "测试数据导入失败：无有效可执行的SQL语句", "DATABASE");
-        } else {
-            writeLog("ERROR", "测试数据导入部分失败，需检查SQL语句", "DATABASE");
-        }
-    } else {
-        writeLog("WARNING", "未找到test_data.sql，跳过测试数据导入 | 错误：" + testSqlFile.errorString(), "DATABASE");
     }
 }
 
@@ -325,7 +217,15 @@ bool DatabaseManager::deleteClass(int classId)
 QList<QVariantMap> DatabaseManager::getAllClasses()
 {
     QList<QVariantMap> classList;
-    QSqlQuery query("SELECT id, room_number, class_name, grade, department FROM class_info ORDER BY id", m_db);
+    QSqlQuery query(m_db); // 先创建查询对象，绑定数据库
+    // 准备并执行查询（关键：必须调用exec()）
+    QString sql = "SELECT id, room_number, class_name, grade, department FROM class_info ORDER BY id";
+    if (!query.exec(sql)) { // 执行查询并检查是否成功
+        QString errMsg = "查询所有班级失败：" + query.lastError().text();
+        writeLog("ERROR", errMsg, "DATABASE");
+        emit operateFailed(errMsg);
+        return classList; // 执行失败返回空列表
+    }
 
     while (query.next()) {
         QVariantMap classMap;
@@ -335,19 +235,6 @@ QList<QVariantMap> DatabaseManager::getAllClasses()
         classMap["grade"] = query.value("grade").toString();
         classMap["department"] = query.value("department").toString();
         classList.append(classMap);
-    }
-
-    writeLog("INFO", "查询所有班级，数量：" + QString::number(classList.size()), "DATABASE");
-
-    // 额外日志：输出查询到的班级列表
-    if (classList.isEmpty()) {
-        writeLog("WARNING", "查询所有班级：结果为空", "DATABASE");
-    } else {
-        QString classNames;
-        for (const QVariantMap& cls : classList) {
-            classNames += cls["class_name"].toString() + ",";
-        }
-        writeLog("INFO", "查询到的班级列表：" + classNames.left(classNames.length()-1), "DATABASE");
     }
 
     return classList;
@@ -377,7 +264,6 @@ QList<QVariantMap> DatabaseManager::searchClasses(const QString& keyword)
             classMap["department"] = query.value("department").toString();
             classList.append(classMap);
         }
-        writeLog("INFO", "搜索班级成功，关键词：" + keyword + "，数量：" + QString::number(classList.size()), "DATABASE");
     } else {
         QString errMsg = "班级搜索失败：" + query.lastError().text();
         writeLog("ERROR", errMsg, "DATABASE");
@@ -479,7 +365,6 @@ QList<QVariantMap> DatabaseManager::getCoursesByClassId(int classId)
             courseMap["classroom"] = query.value("classroom").toString();
             courseList.append(courseMap);
         }
-        writeLog("INFO", "查询班级课程成功，班级ID：" + QString::number(classId) + "，数量：" + QString::number(courseList.size()), "DATABASE");
     } else {
         QString errMsg = "课程查询失败：" + query.lastError().text();
         writeLog("ERROR", errMsg, "DATABASE");
@@ -517,10 +402,8 @@ QVariantMap DatabaseManager::getCurrentCourse(int classId)
         currentCourse["start_time"] = query.value("start_time").toString();
         currentCourse["end_time"] = query.value("end_time").toString();
         currentCourse["classroom"] = query.value("classroom").toString();
-        writeLog("INFO", "查询当前课程成功，班级ID：" + QString::number(classId) + "，课程：" + currentCourse["course_name"].toString(), "DATABASE");
-    } else {
-        writeLog("INFO", "当前无课程，班级ID：" + QString::number(classId), "DATABASE");
     }
+
     return currentCourse;
 }
 
@@ -554,10 +437,8 @@ QVariantMap DatabaseManager::getNextCourse(int classId)
         nextCourse["start_time"] = query.value("start_time").toString();
         nextCourse["end_time"] = query.value("end_time").toString();
         nextCourse["classroom"] = query.value("classroom").toString();
-        writeLog("INFO", "查询下节课成功，班级ID：" + QString::number(classId) + "，课程：" + nextCourse["course_name"].toString(), "DATABASE");
-    } else {
-        writeLog("INFO", "暂无下节课，班级ID：" + QString::number(classId), "DATABASE");
     }
+
     return nextCourse;
 }
 
@@ -617,8 +498,7 @@ bool DatabaseManager::updateNoticeStatus(int noticeId, bool isScrolling, bool is
     query.addBindValue(noticeId);
 
     if (query.exec()) {
-        writeLog("INFO", QString("更新通知状态成功，ID：%1，滚动：%2，有效：%3")
-                 .arg(noticeId).arg(isScrolling).arg(isValid), "DATABASE");
+        writeLog("INFO", QString("更新通知状态成功，ID：%1").arg(noticeId), "DATABASE");
         emit operateSuccess("通知状态更新成功");
         return true;
     } else {
@@ -670,19 +550,6 @@ QList<QVariantMap> DatabaseManager::getValidNotices(bool isScrolling)
                 noticeMap["is_scrolling"] = query.value("is_scrolling").toInt() == 1;
             }
             noticeList.append(noticeMap);
-        }
-        writeLog("INFO", QString("查询有效通知成功，滚动筛选：%1，数量：%2")
-                 .arg(isScrolling).arg(noticeList.size()), "DATABASE");
-
-        // 额外日志：输出通知列表
-        if (noticeList.isEmpty()) {
-            writeLog("WARNING", "查询有效通知：结果为空", "DATABASE");
-        } else {
-            QString noticeTitles;
-            for (const QVariantMap& notice : noticeList) {
-                noticeTitles += notice["title"].toString() + ",";
-            }
-            writeLog("INFO", "查询到的通知列表：" + noticeTitles.left(noticeTitles.length()-1), "DATABASE");
         }
     } else {
         QString errMsg = "通知查询失败：" + query.lastError().text();

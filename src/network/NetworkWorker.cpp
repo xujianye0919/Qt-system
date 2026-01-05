@@ -7,11 +7,10 @@ NetworkWorker::NetworkWorker(QObject *parent) : QObject(parent)
     this->moveToThread(m_workerThread);
     m_workerThread->start();
 
-    // 初始化网络管理器 + 设置全局超时（Qt 6推荐方式）
+    // 初始化网络管理器
     m_netManager = new QNetworkAccessManager(this);
     m_netManager->setTransferTimeout(10000); // 设置10秒超时（替代原TimeoutAttribute）
     connect(m_netManager, &QNetworkAccessManager::finished, this, &NetworkWorker::onReplyFinished);
-
     // 初始化同步定时器
     m_syncTimer = new QTimer(this);
     m_syncTimer->setInterval(m_syncInterval * 1000);
@@ -103,10 +102,7 @@ QNetworkRequest NetworkWorker::buildRequest()
     request.setRawHeader("User-Agent", "ClassBoardSystem/1.0 (Qt 6.9.2)");
     request.setRawHeader("Accept", "application/json");
 
-    // 【删除这行】Qt 6已移除TimeoutAttribute，超时已通过m_netManager->setTransferTimeout设置
-    // request.setAttribute(QNetworkRequest::TimeoutAttribute, 10000);
-
-    // 设置缓存策略（Qt 6兼容）
+    // 设置缓存策略
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
 
     return request;
