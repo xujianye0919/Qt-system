@@ -25,7 +25,7 @@
      </property>
     </widget>
    </item>
-   <!-- 操作按钮 -->
+   <!-- 操作按钮（移除closeBtn） -->
    <item>
     <layout class="QHBoxLayout" name="buttonLayout">
      <item>
@@ -69,105 +69,12 @@
        </property>
       </spacer>
      </item>
-     <item>
-      <widget class="QPushButton" name="closeBtn">
-       <property name="text">
-        <string>关闭</string>
-       </property>
-      </widget>
-     </item>
     </layout>
    </item>
   </layout>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>
- <connections>
-  <connection>
-   <sender>closeBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>NoticeManager</receiver>
-   <slot>close()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>726</x>
-     <y>567</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>789</x>
-     <y>590</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>addBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>NoticeManager</receiver>
-   <slot>on_addBtn_clicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>50</x>
-     <y>567</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>50</x>
-     <y>567</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>deleteBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>NoticeManager</receiver>
-   <slot>on_deleteBtn_clicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>150</x>
-     <y>567</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>150</x>
-     <y>567</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>scrollBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>NoticeManager</receiver>
-   <slot>on_scrollBtn_clicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>250</x>
-     <y>567</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>250</x>
-     <y>567</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>exportNoticeBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>NoticeManager</receiver>
-   <slot>on_exportNoticeBtn_clicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>350</x>
-     <y>567</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>350</x>
-     <y>567</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
- <slots>
-  <slot>on_addBtn_clicked()</slot>
-  <slot>on_deleteBtn_clicked()</slot>
-  <slot>on_scrollBtn_clicked()</slot>
-  <slot>on_exportNoticeBtn_clicked()</slot>
- </slots>
+ <connections/>
+ <slots/>
 </ui>

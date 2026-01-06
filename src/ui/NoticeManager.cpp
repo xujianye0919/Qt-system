@@ -1,13 +1,49 @@
 #include "NoticeManager.h"
 #include "ui_NoticeManager.h"
+#include "data/DatabaseManager.h"
+#include "utility/ExportHelper.h"
+
+#include <QMessageBox>
+#include <QHeaderView>
+#include <QFileDialog>
+#include <QStandardPaths>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QDateTimeEdit>
+#include <QDateEdit>
+#include <QCheckBox>
+#include <QHBoxLayout>
 
 NoticeManager::NoticeManager(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::NoticeManager)
+    , m_noticeModel(nullptr)
 {
     ui->setupUi(this);
+    initUI();
+    initModel();
+    initConnections();
+}
 
-    // 初始化通知模型
+NoticeManager::~NoticeManager()
+{
+    delete ui;
+    delete m_noticeModel;
+}
+
+// 初始化UI
+void NoticeManager::initUI()
+{
+    this->setModal(false);  // 改为非模态对话框
+    this->setMinimumSize(700, 500);
+    this->setWindowTitle("通知管理");
+    this->setAttribute(Qt::WA_DeleteOnClose, true);  // 关闭时自动删除
+}
+
+// 初始化数据模型
+void NoticeManager::initModel()
+{
     m_noticeModel = new QSqlTableModel(this, DatabaseManager::instance().getDb());
     m_noticeModel->setTable("notices");
 
@@ -28,33 +64,34 @@ NoticeManager::NoticeManager(QWidget *parent)
     ui->noticeTableView->setModel(m_noticeModel);
     ui->noticeTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->noticeTableView->verticalHeader()->setVisible(false);
-
-    // 设置窗口属性
-    this->setModal(true);
-    this->setMinimumSize(700, 500);
 }
 
-NoticeManager::~NoticeManager()
+// 初始化信号槽
+void NoticeManager::initConnections()
 {
-    delete ui;
-    delete m_noticeModel;
+    connect(ui->addBtn, &QPushButton::clicked, this, &NoticeManager::handleAddNotice);
+    connect(ui->deleteBtn, &QPushButton::clicked, this, &NoticeManager::handleDeleteNotice);
+    connect(ui->scrollBtn, &QPushButton::clicked, this, &NoticeManager::handleToggleScroll);
+    connect(ui->exportNoticeBtn, &QPushButton::clicked, this, &NoticeManager::handleExportNotice);
 }
 
-// -------------------------- 核心函数 --------------------------
+// 刷新通知列表（你的主窗口会调用）
 void NoticeManager::refreshNoticeList()
 {
-    m_noticeModel->select(); // 重新查询数据库
+    if (m_noticeModel) {
+        m_noticeModel->select();
+    }
 }
 
-// -------------------------- 按钮点击事件 --------------------------
-void NoticeManager::on_addBtn_clicked()
+// 添加通知
+void NoticeManager::handleAddNotice()
 {
     showAddNoticeDialog();
 }
 
-void NoticeManager::on_deleteBtn_clicked()
+// 删除通知
+void NoticeManager::handleDeleteNotice()
 {
-    // 获取选中行
     QModelIndex index = ui->noticeTableView->currentIndex();
     if (!index.isValid()) {
         QMessageBox::warning(this, "警告", "请先选中一条通知！");
@@ -76,9 +113,9 @@ void NoticeManager::on_deleteBtn_clicked()
     }
 }
 
-void NoticeManager::on_scrollBtn_clicked()
+// 切换滚动状态
+void NoticeManager::handleToggleScroll()
 {
-    // 获取选中行
     QModelIndex index = ui->noticeTableView->currentIndex();
     if (!index.isValid()) {
         QMessageBox::warning(this, "警告", "请先选中一条通知！");
@@ -88,7 +125,6 @@ void NoticeManager::on_scrollBtn_clicked()
     int noticeId = m_noticeModel->data(m_noticeModel->index(index.row(), 0)).toInt();
     bool isScrolling = m_noticeModel->data(m_noticeModel->index(index.row(), 5)).toInt() == 1;
 
-    // 更新滚动状态
     bool success = DatabaseManager::instance().updateNoticeStatus(noticeId, !isScrolling, true);
     if (success) {
         QString status = !isScrolling ? "开启" : "关闭";
@@ -99,48 +135,50 @@ void NoticeManager::on_scrollBtn_clicked()
     }
 }
 
-void NoticeManager::on_exportNoticeBtn_clicked()
+// 导出通知
+void NoticeManager::handleExportNotice()
 {
-    // 导出所有有效通知
     QList<QVariantMap> notices = DatabaseManager::instance().getValidNotices(false);
     bool success = ExportHelper::exportNoticesToExcel(notices, "所有通知");
 
-    if (!success) {
+    if (success) {
+        QMessageBox::information(this, "成功", "通知导出成功！");
+    } else {
         QMessageBox::critical(this, "失败", "通知导出失败！\n请确认已安装Excel！");
     }
 }
 
-// -------------------------- 辅助函数 --------------------------
+// 显示添加通知对话框
 void NoticeManager::showAddNoticeDialog()
 {
-    QDialog* dialog = new QDialog(this);
-    dialog->setWindowTitle("添加通知");
-    dialog->setModal(true);
-    dialog->resize(500, 400);
+    QDialog dialog(this);
+    dialog.setWindowTitle("添加通知");
+    dialog.setModal(true);
+    dialog.resize(500, 400);
 
     // 布局
-    QFormLayout* layout = new QFormLayout(dialog);
+    QFormLayout* layout = new QFormLayout(&dialog);
 
     // 控件
-    QLineEdit* titleEdit = new QLineEdit(dialog);
+    QLineEdit* titleEdit = new QLineEdit(&dialog);
     titleEdit->setPlaceholderText("请输入通知标题");
 
-    QTextEdit* contentEdit = new QTextEdit(dialog);
+    QTextEdit* contentEdit = new QTextEdit(&dialog);
     contentEdit->setPlaceholderText("请输入通知内容");
     contentEdit->setMinimumHeight(150);
 
-    QDateTimeEdit* publishTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime(), dialog);
+    QDateTimeEdit* publishTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime(), &dialog);
     publishTimeEdit->setDisplayFormat("yyyy-MM-dd HH:mm:ss");
 
-    QDateEdit* expireTimeEdit = new QDateEdit(QDate::currentDate().addDays(7), dialog);
+    QDateEdit* expireTimeEdit = new QDateEdit(QDate::currentDate().addDays(7), &dialog);
     expireTimeEdit->setDisplayFormat("yyyy-MM-dd");
     expireTimeEdit->setCalendarPopup(true);
 
-    QCheckBox* scrollCheck = new QCheckBox("是否滚动显示", dialog);
+    QCheckBox* scrollCheck = new QCheckBox("是否滚动显示", &dialog);
 
     // 按钮布局
-    QPushButton* okBtn = new QPushButton("确定", dialog);
-    QPushButton* cancelBtn = new QPushButton("取消", dialog);
+    QPushButton* okBtn = new QPushButton("确定", &dialog);
+    QPushButton* cancelBtn = new QPushButton("取消", &dialog);
 
     QHBoxLayout* btnLayout = new QHBoxLayout();
     btnLayout->addStretch();
@@ -155,8 +193,8 @@ void NoticeManager::showAddNoticeDialog()
     layout->addRow(scrollCheck);
     layout->addRow(btnLayout);
 
-    // 信号槽
-    connect(okBtn, &QPushButton::clicked, dialog, [=]() {
+    // 确定按钮绑定
+    connect(okBtn, &QPushButton::clicked, &dialog, [&]() {
         QString title = titleEdit->text().trimmed();
         QString content = contentEdit->toPlainText().trimmed();
         QString publishTime = publishTimeEdit->dateTime().toString("yyyy-MM-dd HH:mm:ss");
@@ -164,24 +202,23 @@ void NoticeManager::showAddNoticeDialog()
         bool isScrolling = scrollCheck->isChecked();
 
         if (title.isEmpty() || content.isEmpty()) {
-            QMessageBox::warning(dialog, "警告", "标题和内容不能为空！");
+            QMessageBox::warning(&dialog, "警告", "标题和内容不能为空！");
             return;
         }
 
-        // 添加通知
         bool success = DatabaseManager::instance().addNotice(title, content, publishTime, expireTime, isScrolling);
         if (success) {
-            QMessageBox::information(dialog, "成功", "通知添加成功！");
-            dialog->close();
+            QMessageBox::information(&dialog, "成功", "通知添加成功！");
+            dialog.accept();
             refreshNoticeList();
         } else {
-            QMessageBox::critical(dialog, "失败", "通知添加失败！");
+            QMessageBox::critical(&dialog, "失败", "通知添加失败！");
         }
     });
 
-    connect(cancelBtn, &QPushButton::clicked, dialog, &QDialog::close);
+    // 取消按钮绑定
+    connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
 
     // 显示对话框
-    dialog->exec();
-    delete dialog;
+    dialog.exec();
 }

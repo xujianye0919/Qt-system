@@ -7,6 +7,7 @@
 #include <QTimer>
 #include <QMessageBox>
 #include <QDateTime>
+#include <QPointer>
 #include "data/DatabaseManager.h"
 #include "network/NetworkWorker.h"
 #include "settings/SettingsManager.h"
@@ -34,11 +35,11 @@ private slots:
     void onExportBtnClicked();
     void onNoticeManagerBtnClicked();
     void onSettingsBtnClicked();
-    
+
     // 定时器槽函数
     void updateCourseInfo();
     void updateMarqueeNotice();
-    
+
     // 辅助槽函数
     void refreshUI();
     void onSyncSuccess(const QString& msg);
@@ -46,25 +47,26 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    
+
     // 数据模型
-    QStandardItemModel* m_courseModel;       // 课表模型
-    QSortFilterProxyModel* m_filterModel;    // 筛选模型
-    QStandardItemModel* m_classModel;        // 班级下拉框模型
-    
+    QStandardItemModel* m_courseModel = nullptr;       // 课表模型
+    QSortFilterProxyModel* m_filterModel = nullptr;    // 筛选模型
+
     // 状态变量
     int m_currentClassId = -1;               // 当前选中班级ID
     QString m_currentClassName = "";         // 当前选中班级名称
-    
+
     // 定时器
-    QTimer* m_courseTimer;                   // 课程信息更新定时器（1秒）
-    QTimer* m_noticeTimer;                   // 通知滚动定时器（5秒）
-    
+    QTimer* m_courseTimer = nullptr;         // 课程信息更新定时器（1秒）
+    QTimer* m_noticeTimer = nullptr;         // 通知滚动定时器（5秒）
+
     // 核心组件
-    NetworkWorker* m_networkWorker;          // 网络同步组件
-    NoticeManager* m_noticeManager;          // 通知管理窗口
-    SettingsDialog* m_settingsDialog;        // 系统设置窗口
-    
+    NetworkWorker* m_networkWorker = nullptr;  // 网络同步组件
+
+    // 使用QPointer管理对话框，当对话框被删除时会自动设置为nullptr
+    QPointer<NoticeManager> m_noticeManager;   // 通知管理窗口
+    QPointer<SettingsDialog> m_settingsDialog; // 系统设置窗口
+
     // 辅助函数
     void initUI();                           // 初始化UI
     void initModels();                       // 初始化数据模型

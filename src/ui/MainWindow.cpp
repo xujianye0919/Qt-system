@@ -1,7 +1,6 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 
-// Qt 基础头文件
 #include <QFile>
 #include <QIcon>
 #include <QHeaderView>
@@ -13,6 +12,11 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_courseModel(nullptr)
+    , m_filterModel(nullptr)
+    , m_courseTimer(nullptr)
+    , m_noticeTimer(nullptr)
+    , m_networkWorker(nullptr)
 {
     ui->setupUi(this);
 
@@ -49,13 +53,22 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    if (m_courseTimer) m_courseTimer->stop();
-    if (m_noticeTimer) m_noticeTimer->stop();
+    if (m_courseTimer) {
+        m_courseTimer->stop();
+        delete m_courseTimer;
+    }
+
+    if (m_noticeTimer) {
+        m_noticeTimer->stop();
+        delete m_noticeTimer;
+    }
 
     delete ui;
     delete m_courseModel;
     delete m_filterModel;
     delete m_networkWorker;
+
+    // QPointer会自动管理，不需要手动删除
 }
 
 // -------------------------- 初始化函数 --------------------------
@@ -65,9 +78,7 @@ void MainWindow::initUI()
     this->setMinimumSize(1000, 700);
     this->setWindowIcon(QIcon(":/icons/app.ico"));
 
-    // 初始化子窗口
-    m_noticeManager = new NoticeManager(this);
-    m_settingsDialog = new SettingsDialog(this);
+    // 初始化子窗口 - 不在这里创建，改为在需要时创建
 
     // 下拉框信号
     connect(ui->classComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -81,12 +92,6 @@ void MainWindow::initUI()
     connect(ui->exportBtn, &QPushButton::clicked, this, &MainWindow::onExportBtnClicked);
     connect(ui->noticeManagerBtn, &QPushButton::clicked, this, &MainWindow::onNoticeManagerBtnClicked);
     connect(ui->settingsBtn, &QPushButton::clicked, this, &MainWindow::onSettingsBtnClicked);
-
-    // 子窗口信号
-    connect(m_settingsDialog, &SettingsDialog::finished, this, [=]() {
-        m_networkWorker->setSyncInterval(SettingsManager::instance().getSyncInterval());
-        refreshUI();
-    });
 }
 
 void MainWindow::initModels()
@@ -183,14 +188,30 @@ void MainWindow::onExportBtnClicked()
 
 void MainWindow::onNoticeManagerBtnClicked()
 {
-    m_noticeManager->refreshNoticeList();
-    m_noticeManager->exec();
-    updateMarqueeNotice();
+    // 如果对话框不存在或已关闭，创建新实例
+    if (!m_noticeManager || !m_noticeManager->isVisible()) {
+        m_noticeManager = new NoticeManager(this);
+        // 设置属性，确保关闭时删除
+        m_noticeManager->setAttribute(Qt::WA_DeleteOnClose);
+    }
+
+    m_noticeManager->show();
+    m_noticeManager->raise();  // 提升到最前
+    m_noticeManager->activateWindow();  // 激活窗口
 }
 
 void MainWindow::onSettingsBtnClicked()
 {
-    m_settingsDialog->exec();
+    // 如果对话框不存在或已关闭，创建新实例
+    if (!m_settingsDialog || !m_settingsDialog->isVisible()) {
+        m_settingsDialog = new SettingsDialog(this);
+        // 设置属性，确保关闭时删除
+        m_settingsDialog->setAttribute(Qt::WA_DeleteOnClose);
+    }
+
+    m_settingsDialog->show();
+    m_settingsDialog->raise();  // 提升到最前
+    m_settingsDialog->activateWindow();  // 激活窗口
 }
 
 // -------------------------- 定时器槽函数 --------------------------

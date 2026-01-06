@@ -98,7 +98,7 @@
      </item>
     </layout>
    </item>
-   <!-- 按钮 -->
+   <!-- 按钮（移除cancelBtn） -->
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
@@ -128,88 +128,12 @@
        </property>
       </widget>
      </item>
-     <item>
-      <widget class="QPushButton" name="cancelBtn">
-       <property name="text">
-        <string>取消</string>
-       </property>
-      </widget>
-     </item>
     </layout>
    </item>
   </layout>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>
- <connections>
-  <connection>
-   <sender>cancelBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>SettingsDialog</receiver>
-   <slot>close()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>417</x>
-     <y>261</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>487</x>
-     <y>285</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>saveBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>SettingsDialog</receiver>
-   <slot>on_saveBtn_clicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>340</x>
-     <y>261</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>340</x>
-     <y>261</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>selectDbBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>SettingsDialog</receiver>
-   <slot>on_selectDbBtn_clicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>420</x>
-     <y>120</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>420</x>
-     <y>120</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>resetBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>SettingsDialog</receiver>
-   <slot>on_resetBtn_clicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>100</x>
-     <y>261</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>100</x>
-     <y>261</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
- <slots>
-  <slot>on_saveBtn_clicked()</slot>
-  <slot>on_selectDbBtn_clicked()</slot>
-  <slot>on_resetBtn_clicked()</slot>
- </slots>
+ <connections/>
+ <slots/>
 </ui>

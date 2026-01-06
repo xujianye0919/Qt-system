@@ -1,5 +1,7 @@
 #include "SettingsDialog.h"
 #include "ui_SettingsDialog.h"
+#include "settings/SettingsManager.h"
+
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QStandardPaths>
@@ -10,18 +12,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     , ui(new Ui::SettingsDialog)
 {
     ui->setupUi(this);
-
-    // 加载当前设置到界面
+    initUI();
+    initConnections();
     loadCurrentSettings();
-
-    // 设置窗口属性（Qt 6 模态+固定大小）
-    this->setModal(true);
-    this->setFixedSize(this->size());
-    this->setWindowTitle("系统设置 - 教室班牌信息展示系统");
-
-    // 补充：为取消按钮绑定reject()（如果ui里有取消按钮）
-    // 如果你的ui里有cancelBtn，添加这行：
-    // connect(ui->cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
 }
 
 SettingsDialog::~SettingsDialog()
@@ -29,8 +22,25 @@ SettingsDialog::~SettingsDialog()
     delete ui;
 }
 
-// -------------------------- 核心槽函数实现 --------------------------
-void SettingsDialog::on_saveBtn_clicked()
+// 初始化UI
+void SettingsDialog::initUI()
+{
+    this->setModal(false);  // 改为非模态对话框
+    this->setFixedSize(this->size());
+    this->setWindowTitle("系统设置");
+    this->setAttribute(Qt::WA_DeleteOnClose, true);  // 关闭时自动删除
+}
+
+// 初始化信号槽
+void SettingsDialog::initConnections()
+{
+    connect(ui->saveBtn, &QPushButton::clicked, this, &SettingsDialog::handleSaveSettings);
+    connect(ui->selectDbBtn, &QPushButton::clicked, this, &SettingsDialog::handleSelectDbPath);
+    connect(ui->resetBtn, &QPushButton::clicked, this, &SettingsDialog::handleResetToDefault);
+}
+
+// 保存设置
+void SettingsDialog::handleSaveSettings()
 {
     // 1. 获取界面输入值
     int syncInterval = ui->syncIntervalSpin->value();
@@ -52,14 +62,14 @@ void SettingsDialog::on_saveBtn_clicked()
     // 4. 保存设置到INI文件
     SettingsManager::instance().saveSettings();
 
-    // 5. 提示并关闭窗口（用accept()而非close()）
+    // 5. 提示并关闭对话框
     QMessageBox::information(this, "成功", "设置已保存！\n部分设置需重启程序生效");
-    this->accept(); // 正确关闭模态对话框
+    this->close();  // 直接关闭窗口
 }
 
-void SettingsDialog::on_selectDbBtn_clicked()
+// 选择数据库路径
+void SettingsDialog::handleSelectDbPath()
 {
-    // 选择SQLite数据库文件（支持新建/选择已有）
     QString dbPath = QFileDialog::getSaveFileName(
         this,
         "选择/创建数据库文件",
@@ -74,38 +84,35 @@ void SettingsDialog::on_selectDbBtn_clicked()
         }
         ui->dbPathEdit->setText(dbPath);
 
-        // 提示：切换数据库需重启
         QMessageBox::information(this, "提示", "数据库路径已选择：\n" + dbPath + "\n重启程序后生效");
     }
 }
 
-void SettingsDialog::on_resetBtn_clicked()
+// 恢复默认设置
+void SettingsDialog::handleResetToDefault()
 {
-    // 确认恢复默认
     if (QMessageBox::question(this, "确认", "是否恢复所有设置为默认值？\n当前设置将被清空！") != QMessageBox::Yes) {
         return;
     }
 
-    // 恢复界面默认值（不立即保存）
     resetToDefault();
     QMessageBox::information(this, "提示", "已恢复默认设置！点击【保存设置】生效");
 }
 
-// -------------------------- 辅助函数实现 --------------------------
+// 加载当前设置
 void SettingsDialog::loadCurrentSettings()
 {
-    // 从设置管理器加载当前配置到界面
     ui->syncIntervalSpin->setValue(SettingsManager::instance().getSyncInterval());
     ui->dbPathEdit->setText(SettingsManager::instance().getDbPath());
     ui->serverUrlEdit->setText(SettingsManager::instance().getServerUrl());
-    ui->autoSyncCheck->setChecked(true); // 自动同步默认开启
+    ui->autoSyncCheck->setChecked(true);
 }
 
+// 恢复默认设置（界面层）
 void SettingsDialog::resetToDefault()
 {
-    // 恢复界面默认值（与SettingsManager默认值一致）
-    ui->syncIntervalSpin->setValue(600);          // 默认10分钟同步
-    ui->dbPathEdit->setText("");                 // 默认使用AppData路径
-    ui->serverUrlEdit->setText("http://127.0.0.1:8080/api/sync"); // 默认服务器地址
-    ui->autoSyncCheck->setChecked(true);         // 自动同步默认开启
+    ui->syncIntervalSpin->setValue(600);
+    ui->dbPathEdit->setText("");
+    ui->serverUrlEdit->setText("http://127.0.0.1:8080/api/sync");
+    ui->autoSyncCheck->setChecked(true);
 }

@@ -3,49 +3,43 @@
 
 #include <QDialog>
 #include <QSqlTableModel>
-#include <QStandardItemModel>
-#include <QDialog>
-#include <QFormLayout>
-#include <QLineEdit>
-#include <QTextEdit>
-#include <QCheckBox>
-#include <QPushButton>
-#include <QDateEdit>
-#include <QTimeEdit>
-#include <QMessageBox>
-#include <QFileDialog>
-#include "data/DatabaseManager.h"
-#include "utility/ExportHelper.h"
+#include <QCloseEvent>
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class NoticeManager; }
-QT_END_NAMESPACE
+// 前置声明
+class DatabaseManager;
+class ExportHelper;
+
+namespace Ui {
+class NoticeManager;
+}
 
 class NoticeManager : public QDialog
 {
     Q_OBJECT
 
 public:
+    // 普通构造函数（适配成员变量）
     explicit NoticeManager(QWidget *parent = nullptr);
     ~NoticeManager();
-    
-    // 刷新通知列表
+
+    // 刷新通知列表（你的主窗口会调用）
     void refreshNoticeList();
 
 private slots:
-    // 按钮点击事件
-    void on_addBtn_clicked();
-    void on_deleteBtn_clicked();
-    void on_scrollBtn_clicked();
-    void on_exportNoticeBtn_clicked();
+    void handleAddNotice();
+    void handleDeleteNotice();
+    void handleToggleScroll();
+    void handleExportNotice();
 
 private:
     Ui::NoticeManager *ui;
-    QSqlTableModel* m_noticeModel; // 通知模型（Qt 6 SQL模型）
-    
+    QSqlTableModel *m_noticeModel;
+
     // 辅助函数
-    void showAddNoticeDialog();    // 弹出添加通知对话框
-    void showEditNoticeDialog();   // 弹出编辑通知对话框（扩展）
+    void initUI();
+    void initModel();
+    void initConnections();
+    void showAddNoticeDialog();
 };
 
 #endif // NOTICEMANAGER_H
