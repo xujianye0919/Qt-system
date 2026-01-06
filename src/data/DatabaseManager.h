@@ -33,15 +33,22 @@ public:
     QSqlDatabase getDb() const { return m_db; }
 
     // -------------------------- 班级管理 --------------------------
-    bool addClass(const QString& roomNumber, const QString& className, const QString& grade, const QString& department);
+    // 移除 roomNumber 参数（适配新表结构，class_info 表无该字段）
+    bool addClass(const QString& className, const QString& grade, const QString& department);
     bool deleteClass(int classId);
     QList<QVariantMap> getAllClasses();
     QList<QVariantMap> searchClasses(const QString& keyword);
 
+    // -------------------------- 教室管理（新增，适配 classroom_info 表） --------------------------
+    bool addClassroom(const QString& classroomName);          // 添加教室
+    QList<QVariantMap> getAllClassrooms();                    // 获取所有教室
+    QString getClassroomNameById(int classroomId);            // 根据ID获取教室名称
+
     // -------------------------- 课表管理 --------------------------
+    // 修改：classroom 改为 classroomId（int类型，关联教室表主键）
     bool addCourse(int classId, const QString& courseName, const QString& teacher, const QString& courseType,
                    const QString& startTime, const QString& endTime, int dayOfWeek,
-                   const QString& startDate, const QString& endDate, const QString& classroom = "");
+                   const QString& startDate, const QString& endDate, int classroomId = 0);
     bool deleteCourse(int courseId);
     QList<QVariantMap> getCoursesByClassId(int classId);
     QVariantMap getCurrentCourse(int classId);

@@ -54,6 +54,7 @@ private:
     // 辅助函数
     void parseAndSyncData(const QByteArray& jsonData);
     QNetworkRequest buildRequest();
+    int getClassroomIdByName(const QString& classroomName);
 };
 
 #endif // NETWORKWORKER_H

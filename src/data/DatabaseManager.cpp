@@ -1,5 +1,15 @@
 #include "DatabaseManager.h"
 #include <QRegularExpression>
+#include <QStandardPaths>
+#include <QDir>
+#include <QThread>
+#include <QDate>
+#include <QTime>
+#include <QFile>
+#include <QSqlQuery>
+#include <QSqlError>
+#include <QVariantMap>
+#include <QList>
 
 // 单例实例初始化
 DatabaseManager& DatabaseManager::instance()
@@ -172,14 +182,14 @@ void DatabaseManager::createTables()
 }
 
 // -------------------------- 班级管理实现 --------------------------
-bool DatabaseManager::addClass(const QString& roomNumber, const QString& className, const QString& grade, const QString& department)
+// 修复：移除room_number字段，匹配新表结构
+bool DatabaseManager::addClass(const QString& className, const QString& grade, const QString& department)
 {
     QSqlQuery query(m_db);
     query.prepare(R"(
-        INSERT INTO class_info (room_number, class_name, grade, department)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO class_info (class_name, grade, department)
+        VALUES (?, ?, ?)
     )");
-    query.addBindValue(roomNumber);
     query.addBindValue(className);
     query.addBindValue(grade);
     query.addBindValue(department);
@@ -214,12 +224,13 @@ bool DatabaseManager::deleteClass(int classId)
     }
 }
 
+// 修复：移除room_number字段，匹配新表结构
 QList<QVariantMap> DatabaseManager::getAllClasses()
 {
     QList<QVariantMap> classList;
     QSqlQuery query(m_db); // 先创建查询对象，绑定数据库
     // 准备并执行查询（关键：必须调用exec()）
-    QString sql = "SELECT id, room_number, class_name, grade, department FROM class_info ORDER BY id";
+    QString sql = "SELECT id, class_name, grade, department FROM class_info ORDER BY id";
     if (!query.exec(sql)) { // 执行查询并检查是否成功
         QString errMsg = "查询所有班级失败：" + query.lastError().text();
         writeLog("ERROR", errMsg, "DATABASE");
@@ -230,7 +241,6 @@ QList<QVariantMap> DatabaseManager::getAllClasses()
     while (query.next()) {
         QVariantMap classMap;
         classMap["id"] = query.value("id").toInt();
-        classMap["room_number"] = query.value("room_number").toString();
         classMap["class_name"] = query.value("class_name").toString();
         classMap["grade"] = query.value("grade").toString();
         classMap["department"] = query.value("department").toString();
@@ -240,17 +250,17 @@ QList<QVariantMap> DatabaseManager::getAllClasses()
     return classList;
 }
 
+// 修复：移除room_number字段，匹配新表结构
 QList<QVariantMap> DatabaseManager::searchClasses(const QString& keyword)
 {
     QList<QVariantMap> classList;
     QSqlQuery query(m_db);
     query.prepare(R"(
-        SELECT id, room_number, class_name, grade, department FROM class_info
-        WHERE class_name LIKE ? OR room_number LIKE ? OR department LIKE ?
+        SELECT id, class_name, grade, department FROM class_info
+        WHERE class_name LIKE ? OR department LIKE ?
         ORDER BY id
     )");
     QString likeKeyword = QString("%%1%").arg(keyword);
-    query.addBindValue(likeKeyword);
     query.addBindValue(likeKeyword);
     query.addBindValue(likeKeyword);
 
@@ -258,7 +268,6 @@ QList<QVariantMap> DatabaseManager::searchClasses(const QString& keyword)
         while (query.next()) {
             QVariantMap classMap;
             classMap["id"] = query.value("id").toInt();
-            classMap["room_number"] = query.value("room_number").toString();
             classMap["class_name"] = query.value("class_name").toString();
             classMap["grade"] = query.value("grade").toString();
             classMap["department"] = query.value("department").toString();
@@ -272,10 +281,71 @@ QList<QVariantMap> DatabaseManager::searchClasses(const QString& keyword)
     return classList;
 }
 
+// -------------------------- 教室管理新增实现（适配新表） --------------------------
+bool DatabaseManager::addClassroom(const QString& classroomName)
+{
+    QSqlQuery query(m_db);
+    query.prepare(R"(
+        INSERT INTO classroom_info (classroom_name)
+        VALUES (?)
+    )");
+    query.addBindValue(classroomName);
+
+    if (query.exec()) {
+        writeLog("INFO", "添加教室成功：" + classroomName, "DATABASE");
+        emit operateSuccess("教室添加成功");
+        return true;
+    } else {
+        QString errMsg = QString("教室添加失败：%1").arg(query.lastError().text());
+        writeLog("ERROR", errMsg, "DATABASE");
+        emit operateFailed(errMsg);
+        return false;
+    }
+}
+
+QList<QVariantMap> DatabaseManager::getAllClassrooms()
+{
+    QList<QVariantMap> classroomList;
+    QSqlQuery query(m_db);
+    QString sql = "SELECT id, classroom_name FROM classroom_info ORDER BY id";
+
+    if (!query.exec(sql)) {
+        QString errMsg = "查询所有教室失败：" + query.lastError().text();
+        writeLog("ERROR", errMsg, "DATABASE");
+        emit operateFailed(errMsg);
+        return classroomList;
+    }
+
+    while (query.next()) {
+        QVariantMap classroomMap;
+        classroomMap["id"] = query.value("id").toInt();
+        classroomMap["classroom_name"] = query.value("classroom_name").toString();
+        classroomList.append(classroomMap);
+    }
+
+    return classroomList;
+}
+
+// 根据教室ID获取教室名称
+QString DatabaseManager::getClassroomNameById(int classroomId)
+{
+    QSqlQuery query(m_db);
+    query.prepare("SELECT classroom_name FROM classroom_info WHERE id = ?");
+    query.addBindValue(classroomId);
+
+    if (query.exec() && query.next()) {
+        return query.value("classroom_name").toString();
+    }
+
+    writeLog("ERROR", QString("查询教室名称失败，ID：%1").arg(classroomId), "DATABASE");
+    return "";
+}
+
 // -------------------------- 课表管理实现 --------------------------
+// 修复：将classroom改为classroom_id，适配外键关联
 bool DatabaseManager::addCourse(int classId, const QString& courseName, const QString& teacher, const QString& courseType,
                                const QString& startTime, const QString& endTime, int dayOfWeek,
-                               const QString& startDate, const QString& endDate, const QString& classroom)
+                               const QString& startDate, const QString& endDate, int classroomId)
 {
     // 验证日期格式
     QString formattedStart = formatDate(startDate);
@@ -286,10 +356,17 @@ bool DatabaseManager::addCourse(int classId, const QString& courseName, const QS
         return false;
     }
 
+    // 验证星期范围
+    if (dayOfWeek < 1 || dayOfWeek > 7) {
+        writeLog("ERROR", QString("星期值错误：%1（必须1-7）").arg(dayOfWeek), "DATABASE");
+        emit operateFailed("星期值错误（必须1-7）");
+        return false;
+    }
+
     QSqlQuery query(m_db);
     query.prepare(R"(
         INSERT INTO course_schedule (class_id, course_name, teacher, course_type,
-                                    start_time, end_time, day_of_week, start_date, end_date, classroom)
+                                    start_time, end_time, day_of_week, start_date, end_date, classroom_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     )");
     query.addBindValue(classId);
@@ -301,7 +378,7 @@ bool DatabaseManager::addCourse(int classId, const QString& courseName, const QS
     query.addBindValue(dayOfWeek);
     query.addBindValue(formattedStart);
     query.addBindValue(formattedEnd);
-    query.addBindValue(classroom);
+    query.addBindValue(classroomId);
 
     if (query.exec()) {
         writeLog("INFO", "添加课程成功：" + courseName, "DATABASE");
@@ -333,6 +410,7 @@ bool DatabaseManager::deleteCourse(int courseId)
     }
 }
 
+// 修复：查询classroom_id并关联获取教室名称
 QList<QVariantMap> DatabaseManager::getCoursesByClassId(int classId)
 {
     QList<QVariantMap> courseList;
@@ -340,11 +418,12 @@ QList<QVariantMap> DatabaseManager::getCoursesByClassId(int classId)
 
     QSqlQuery query(m_db);
     query.prepare(R"(
-        SELECT id, course_name, teacher, course_type, start_time, end_time, day_of_week,
-               start_date, end_date, classroom
-        FROM course_schedule
-        WHERE class_id = ? AND start_date <= ? AND end_date >= ?
-        ORDER BY day_of_week, start_time
+        SELECT cs.id, cs.course_name, cs.teacher, cs.course_type, cs.start_time, cs.end_time,
+               cs.day_of_week, cs.start_date, cs.end_date, cs.classroom_id, ci.classroom_name
+        FROM course_schedule cs
+        LEFT JOIN classroom_info ci ON cs.classroom_id = ci.id
+        WHERE cs.class_id = ? AND cs.start_date <= ? AND cs.end_date >= ?
+        ORDER BY cs.day_of_week, cs.start_time
     )");
     query.addBindValue(classId);
     query.addBindValue(today);
@@ -362,7 +441,8 @@ QList<QVariantMap> DatabaseManager::getCoursesByClassId(int classId)
             courseMap["day_of_week"] = query.value("day_of_week").toInt();
             courseMap["start_date"] = query.value("start_date").toString();
             courseMap["end_date"] = query.value("end_date").toString();
-            courseMap["classroom"] = query.value("classroom").toString();
+            courseMap["classroom_id"] = query.value("classroom_id").toInt();
+            courseMap["classroom_name"] = query.value("classroom_name").toString(); // 返回教室名称
             courseList.append(courseMap);
         }
     } else {
@@ -372,6 +452,7 @@ QList<QVariantMap> DatabaseManager::getCoursesByClassId(int classId)
     return courseList;
 }
 
+// 修复：关联教室表获取教室名称
 QVariantMap DatabaseManager::getCurrentCourse(int classId)
 {
     QVariantMap currentCourse;
@@ -382,10 +463,12 @@ QVariantMap DatabaseManager::getCurrentCourse(int classId)
 
     QSqlQuery query(m_db);
     query.prepare(R"(
-        SELECT id, course_name, teacher, course_type, start_time, end_time, classroom
-        FROM course_schedule
-        WHERE class_id = ? AND day_of_week = ? AND start_date <= ? AND end_date >= ?
-              AND start_time <= ? AND end_time >= ?
+        SELECT cs.id, cs.course_name, cs.teacher, cs.course_type, cs.start_time, cs.end_time,
+               cs.classroom_id, ci.classroom_name
+        FROM course_schedule cs
+        LEFT JOIN classroom_info ci ON cs.classroom_id = ci.id
+        WHERE cs.class_id = ? AND cs.day_of_week = ? AND cs.start_date <= ? AND cs.end_date >= ?
+              AND cs.start_time <= ? AND cs.end_time >= ?
     )");
     query.addBindValue(classId);
     query.addBindValue(dayOfWeek);
@@ -401,12 +484,14 @@ QVariantMap DatabaseManager::getCurrentCourse(int classId)
         currentCourse["course_type"] = query.value("course_type").toString();
         currentCourse["start_time"] = query.value("start_time").toString();
         currentCourse["end_time"] = query.value("end_time").toString();
-        currentCourse["classroom"] = query.value("classroom").toString();
+        currentCourse["classroom_id"] = query.value("classroom_id").toInt();
+        currentCourse["classroom_name"] = query.value("classroom_name").toString();
     }
 
     return currentCourse;
 }
 
+// 修复：关联教室表获取教室名称
 QVariantMap DatabaseManager::getNextCourse(int classId)
 {
     QVariantMap nextCourse;
@@ -417,11 +502,13 @@ QVariantMap DatabaseManager::getNextCourse(int classId)
 
     QSqlQuery query(m_db);
     query.prepare(R"(
-        SELECT id, course_name, teacher, course_type, start_time, end_time, classroom
-        FROM course_schedule
-        WHERE class_id = ? AND day_of_week = ? AND start_date <= ? AND end_date >= ?
-              AND start_time > ?
-        ORDER BY start_time ASC LIMIT 1
+        SELECT cs.id, cs.course_name, cs.teacher, cs.course_type, cs.start_time, cs.end_time,
+               cs.classroom_id, ci.classroom_name
+        FROM course_schedule cs
+        LEFT JOIN classroom_info ci ON cs.classroom_id = ci.id
+        WHERE cs.class_id = ? AND cs.day_of_week = ? AND cs.start_date <= ? AND cs.end_date >= ?
+              AND cs.start_time > ?
+        ORDER BY cs.start_time ASC LIMIT 1
     )");
     query.addBindValue(classId);
     query.addBindValue(dayOfWeek);
@@ -436,7 +523,8 @@ QVariantMap DatabaseManager::getNextCourse(int classId)
         nextCourse["course_type"] = query.value("course_type").toString();
         nextCourse["start_time"] = query.value("start_time").toString();
         nextCourse["end_time"] = query.value("end_time").toString();
-        nextCourse["classroom"] = query.value("classroom").toString();
+        nextCourse["classroom_id"] = query.value("classroom_id").toInt();
+        nextCourse["classroom_name"] = query.value("classroom_name").toString();
     }
 
     return nextCourse;

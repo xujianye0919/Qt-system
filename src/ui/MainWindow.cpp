@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QMessageBox>
 #include <QDateTime>
+#include <QColor>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -316,7 +317,11 @@ void MainWindow::loadCourseTable(int classId)
         items.append(new QStandardItem(course["course_type"].toString()));
         items.append(new QStandardItem(course["start_time"].toString()));
         items.append(new QStandardItem(course["end_time"].toString()));
-        items.append(new QStandardItem(course["classroom"].toString()));
+        QString classroomName = course["classroom_name"].toString();
+                if (classroomName.isEmpty()) {
+                    classroomName = "未分配";
+                }
+        items.append(new QStandardItem(classroomName));
 
         for (QStandardItem* item : items) {
             item->setEditable(false);
@@ -341,6 +346,10 @@ void MainWindow::updateCurrentCourse(const QVariantMap& course)
 
     ui->currentCourseName->setText(course["course_name"].toString());
     ui->currentCourseTeacher->setText(QString("任课教师：%1").arg(course["teacher"].toString()));
+    QString classroomInfo = course["classroom_name"].toString();
+        if (!classroomInfo.isEmpty()) {
+            ui->currentCourseTeacher->setText(ui->currentCourseTeacher->text() + QString(" | 教室：%1").arg(classroomInfo));
+        }
     ui->currentCourseTime->setText(QString("上课时间：%1 至 %2")
                                    .arg(course["start_time"].toString(), course["end_time"].toString()));
 
@@ -359,6 +368,10 @@ void MainWindow::updateNextCourse(const QVariantMap& course)
 
     ui->nextCourseName->setText(course["course_name"].toString());
     ui->nextCourseTeacher->setText(QString("任课教师：%1").arg(course["teacher"].toString()));
+    QString classroomInfo = course["classroom_name"].toString();
+        if (!classroomInfo.isEmpty()) {
+            ui->nextCourseTeacher->setText(ui->nextCourseTeacher->text() + QString(" | 教室：%1").arg(classroomInfo));
+        }
     ui->nextCourseTime->setText(QString("上课时间：%1 至 %2")
                                    .arg(course["start_time"].toString(), course["end_time"].toString()));
 }

@@ -1,4 +1,8 @@
 #include "NetworkWorker.h"
+// 新增：包含教室管理相关逻辑（需要通过教室名称查ID）
+#include "data/DatabaseManager.h"
+#include <QJsonArray>
+#include <QJsonObject>
 
 NetworkWorker::NetworkWorker(QObject *parent) : QObject(parent)
 {
@@ -108,6 +112,32 @@ QNetworkRequest NetworkWorker::buildRequest()
     return request;
 }
 
+// 辅助函数：根据教室名称获取ID（不存在则自动创建）
+int NetworkWorker::getClassroomIdByName(const QString& classroomName)
+{
+    // 先查询是否存在该教室
+    QList<QVariantMap> classrooms = DatabaseManager::instance().getAllClassrooms();
+    for (const QVariantMap& room : classrooms) {
+        if (room["classroom_name"].toString() == classroomName) {
+            return room["id"].toInt();
+        }
+    }
+
+    // 不存在则创建新教室
+    if (DatabaseManager::instance().addClassroom(classroomName)) {
+        // 创建后再次查询获取ID
+        classrooms = DatabaseManager::instance().getAllClassrooms();
+        for (const QVariantMap& room : classrooms) {
+            if (room["classroom_name"].toString() == classroomName) {
+                return room["id"].toInt();
+            }
+        }
+    }
+
+    // 失败返回0（表示未找到/创建失败）
+    return 0;
+}
+
 // 解析JSON并同步到本地数据库
 void NetworkWorker::parseAndSyncData(const QByteArray& jsonData)
 {
@@ -141,14 +171,15 @@ void NetworkWorker::parseAndSyncData(const QByteArray& jsonData)
 
     for (const QJsonValue& val : classArray) {
         QJsonObject obj = val.toObject();
-        QString roomNumber = obj["room_number"].toString();
+        // 移除roomNumber参数（适配DatabaseManager::addClass的修改）
         QString className = obj["class_name"].toString();
         QString grade = obj["grade"].toString();
         QString department = obj["department"].toString();
 
         // 同步逻辑：先删后加
         DatabaseManager::instance().deleteClass(obj["id"].toInt());
-        DatabaseManager::instance().addClass(roomNumber, className, grade, department);
+        // 调用修改后的addClass（无roomNumber参数）
+        DatabaseManager::instance().addClass(className, grade, department);
     }
 
     // 解析课程数据
@@ -166,12 +197,16 @@ void NetworkWorker::parseAndSyncData(const QByteArray& jsonData)
         int dayOfWeek = obj["day_of_week"].toInt();
         QString startDate = obj["start_date"].toString();
         QString endDate = obj["end_date"].toString();
-        QString classroom = obj["classroom"].toString();
+        QString classroomName = obj["classroom"].toString();
+
+        // 将教室名称转换为教室ID（通过辅助函数）
+        int classroomId = getClassroomIdByName(classroomName);
 
         DatabaseManager::instance().deleteCourse(obj["id"].toInt());
+        // 调用修改后的addCourse（最后一个参数改为classroomId）
         DatabaseManager::instance().addCourse(classId, courseName, teacher, courseType,
                                              startTime, endTime, dayOfWeek,
-                                             startDate, endDate, classroom);
+                                             startDate, endDate, classroomId);
     }
 
     // 解析通知数据
