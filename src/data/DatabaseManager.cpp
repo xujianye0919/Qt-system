@@ -181,50 +181,7 @@ void DatabaseManager::createTables()
     }
 }
 
-// -------------------------- 班级管理实现 --------------------------
-// 修复：移除room_number字段，匹配新表结构
-bool DatabaseManager::addClass(const QString& className, const QString& grade, const QString& department)
-{
-    QSqlQuery query(m_db);
-    query.prepare(R"(
-        INSERT INTO class_info (class_name, grade, department)
-        VALUES (?, ?, ?)
-    )");
-    query.addBindValue(className);
-    query.addBindValue(grade);
-    query.addBindValue(department);
-
-    if (query.exec()) {
-        writeLog("INFO", "添加班级成功：" + className, "DATABASE");
-        emit operateSuccess("班级添加成功");
-        return true;
-    } else {
-        QString errMsg = QString("班级添加失败：%1").arg(query.lastError().text());
-        writeLog("ERROR", errMsg, "DATABASE");
-        emit operateFailed(errMsg);
-        return false;
-    }
-}
-
-bool DatabaseManager::deleteClass(int classId)
-{
-    QSqlQuery query(m_db);
-    query.prepare("DELETE FROM class_info WHERE id = ?");
-    query.addBindValue(classId);
-
-    if (query.exec()) {
-        writeLog("INFO", "删除班级成功，ID：" + QString::number(classId), "DATABASE");
-        emit operateSuccess("班级删除成功");
-        return true;
-    } else {
-        QString errMsg = QString("班级删除失败：%1").arg(query.lastError().text());
-        writeLog("ERROR", errMsg, "DATABASE");
-        emit operateFailed(errMsg);
-        return false;
-    }
-}
-
-// 修复：移除room_number字段，匹配新表结构
+// -------------------------- 班级管理实现（仅保留查询/搜索） --------------------------
 QList<QVariantMap> DatabaseManager::getAllClasses()
 {
     QList<QVariantMap> classList;
@@ -250,7 +207,6 @@ QList<QVariantMap> DatabaseManager::getAllClasses()
     return classList;
 }
 
-// 修复：移除room_number字段，匹配新表结构
 QList<QVariantMap> DatabaseManager::searchClasses(const QString& keyword)
 {
     QList<QVariantMap> classList;

@@ -176,10 +176,6 @@ void NetworkWorker::parseAndSyncData(const QByteArray& jsonData)
         QString grade = obj["grade"].toString();
         QString department = obj["department"].toString();
 
-        // 同步逻辑：先删后加
-        DatabaseManager::instance().deleteClass(obj["id"].toInt());
-        // 调用修改后的addClass（无roomNumber参数）
-        DatabaseManager::instance().addClass(className, grade, department);
     }
 
     // 解析课程数据

@@ -358,22 +358,7 @@
     </hint>
    </hints>
   </connection>
-  <connection>
-   <sender>exportBtn</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>onExportBtnClicked()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>600</x>
-     <y>100</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>600</x>
-     <y>100</y>
-    </hint>
-   </hints>
-  </connection>
+  <!-- exportBtn的连接已删除，避免重复执行 -->
   <connection>
    <sender>noticeManagerBtn</sender>
    <signal>clicked()</signal>
@@ -410,7 +395,7 @@
  <slots>
   <slot>onClassSelected(int)</slot>
   <slot>onSearchTextChanged(QString)</slot>
-  <slot>onExportBtnClicked()</slot>
+  <!-- 删除 onExportBtnClicked() 的声明，因为已在 MainWindow.h 中声明 -->
   <slot>onNoticeManagerBtnClicked()</slot>
   <slot>onSettingsBtnClicked()</slot>
  </slots>

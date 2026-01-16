@@ -1,4 +1,4 @@
-#ifndef DATABASEMANAGER_H
+#ifndef DATABASEMANAGER_H  // 关键：补充缺失的 #ifndef 指令
 #define DATABASEMANAGER_H
 
 #include <QObject>
@@ -32,10 +32,7 @@ public:
     // 获取数据库连接
     QSqlDatabase getDb() const { return m_db; }
 
-    // -------------------------- 班级管理 --------------------------
-    // 移除 roomNumber 参数（适配新表结构，class_info 表无该字段）
-    bool addClass(const QString& className, const QString& grade, const QString& department);
-    bool deleteClass(int classId);
+    // -------------------------- 班级管理（仅保留查询/搜索） --------------------------
     QList<QVariantMap> getAllClasses();
     QList<QVariantMap> searchClasses(const QString& keyword);
 
